@@ -40,6 +40,8 @@ modules/*
 .roomodes
 deno.json
 deno.lock
+.gemini
+.vscode
 
 
 # local files
