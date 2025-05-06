@@ -1,0 +1,11 @@
+
+$ mizchi contents or erase
+__deprecated
+_apps
+_apps/*
+_poc
+_poc/*
+_docs
+_docs/*
+_README.md
+
