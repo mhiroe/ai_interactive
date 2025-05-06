@@ -1,0 +1,48 @@
+# Deno
+cov/
+coverage/
+coverage.lcov
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Cache
+.deno/*
+tmp
+node_modules
+.env
+.env.local
+.dev.vars
+
+# mizchi
+
+.cline
+.clineignore
+.github
+.hooks
+modules
+modules/*
+.clinerules
+.roomodes
+deno.json
+deno.lock
+
+
+# local files
+apps/nh_top/*
+apps/nh_top/
+apps/nh_top/
