@@ -30,6 +30,10 @@ function getContentType(filePath: string): string {
       return "image/gif";
     case "svg":
       return "image/svg+xml";
+    case "frag":
+      return "x-shader/x-fragment";
+    case "vert":
+      return "x-shader/x-vertex";
     default:
       return "application/octet-stream";
   }
@@ -56,6 +60,7 @@ Deno.serve({ port: 8000 }, async (request) => {
         status: 200,
         headers: {
           "content-type": contentType,
+          "access-control-allow-origin": "*",
         },
       });
     } catch (e) {

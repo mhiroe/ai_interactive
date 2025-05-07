@@ -1,0 +1,10 @@
+{
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read src/server.ts",
+    "build": "deno bundle --config ../../deno.jsonc src/main.ts static/main.js"
+  },
+  "imports": {
+    "three": "npm:three@0.150.0",
+    "three/examples/jsm/misc/GPUComputationRenderer": "npm:three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js"
+  }
+}

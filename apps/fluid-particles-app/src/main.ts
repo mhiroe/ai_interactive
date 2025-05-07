@@ -1,4 +1,5 @@
-import * as THREE from "three";
+import * as THREE from "npm:three@0.150.0";
+import { FluidSimulation } from "./simulation/FluidSimulation.ts";
 
 // Three.jsのセットアップ
 const container = document.getElementById("container");
@@ -17,22 +18,62 @@ const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
 camera.position.z = 1;
 
-// 簡単なジオメトリを追加（テスト用）
+// 流体シミュレーションのセットアップ
+const SIMULATION_RESOLUTION = 256;
+const fluidSimulation = new FluidSimulation(renderer, SIMULATION_RESOLUTION);
+
+// 流体表示用のジオメトリ
 const geometry = new THREE.PlaneGeometry(1.8, 1.8);
 const material = new THREE.MeshBasicMaterial({
-  color: 0x3366ff,
+  map: null, // シミュレーション結果のテクスチャを後で設定
   transparent: true,
-  opacity: 0.5,
+  opacity: 0.8,
 });
 const mesh = new THREE.Mesh(geometry, material);
 scene.add(mesh);
+
+// マウス位置の追跡
+const mouse = new THREE.Vector2();
+const mouseDelta = new THREE.Vector2();
+const prevMouse = new THREE.Vector2();
+let isMouseDown = false;
+
+// マウスイベントハンドラ
+function updateMousePosition(event: MouseEvent) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+window.addEventListener("mousedown", (event) => {
+  isMouseDown = true;
+  updateMousePosition(event);
+  prevMouse.copy(mouse);
+});
+
+window.addEventListener("mouseup", () => {
+  isMouseDown = false;
+  mouseDelta.set(0, 0);
+});
+
+window.addEventListener("mousemove", (event) => {
+  if (!isMouseDown) return;
+
+  updateMousePosition(event);
+  mouseDelta.subVectors(mouse, prevMouse);
+  prevMouse.copy(mouse);
+});
 
 // アニメーションループ
 function animate() {
   requestAnimationFrame(animate);
 
-  // テスト用のアニメーション
-  mesh.rotation.z += 0.01;
+  // 流体シミュレーションの更新
+  if (isMouseDown) {
+    const simulationTexture = fluidSimulation.update(mouse, mouseDelta);
+    material.map = simulationTexture;
+    material.needsUpdate = true;
+  }
 
   renderer.render(scene, camera);
 }
@@ -50,6 +91,11 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
+});
+
+// クリーンアップ
+window.addEventListener("beforeunload", () => {
+  fluidSimulation.dispose();
 });
 
 console.log("Fluid Particles App initialized");
