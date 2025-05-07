@@ -102,6 +102,8 @@ touch deno.json
 
 ### deno.json の設定例
 
+ルートディレクトリ上の deno.json を includeすること
+
 ```json
 {
   "tasks": {

@@ -29,7 +29,8 @@ node_modules
 .dev.vars
 
 # mizchi
-
+__deprecated
+__deprecated/*
 .cline
 .clineignore
 .github
