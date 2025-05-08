@@ -3,8 +3,7 @@
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-env src/server.ts",
     "dev": "deno run --allow-net --allow-read --allow-env --watch src/server.ts",
-    "build": "deno compile --output=static/main src/main.ts",
-    "build:watch": "deno bundle --watch --outputs=src/main.ts > static/main.js",
+    "build": "sh -c 'cp src/simulation/shaders/*.{frag,vert} static/ && npx esbuild src/main.ts --bundle --outfile=static/main.js --format=esm --external:three --external:three/examples/jsm/misc/GPUComputationRenderer'",
     "client": "deno run --allow-net --allow-read --allow-env --watch src/main.ts"
   },
   "compilerOptions": {

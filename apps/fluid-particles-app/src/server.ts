@@ -17,6 +17,8 @@ function getContentType(filePath: string): string {
       return "text/html";
     case "js":
       return "application/javascript";
+    case "mjs":
+      return "application/javascript";
     case "css":
       return "text/css";
     case "json":
@@ -35,7 +37,8 @@ function getContentType(filePath: string): string {
     case "vert":
       return "x-shader/x-vertex";
     default:
-      return "application/octet-stream";
+      // バイナリファイルの場合も JavaScript として扱う
+      return "application/javascript";
   }
 }
 

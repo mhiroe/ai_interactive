@@ -1,6 +1,4 @@
 // 圧力計算シェーダー
-uniform sampler2D pressureTexture;
-uniform sampler2D divergenceTexture;
 uniform float cellSize;
 uniform float alpha;
 uniform float beta;

@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GPUComputationRenderer } from "three/examples/jsm/misc/GPUComputationRenderer";
+import { GPUComputationRenderer } from "../../static/GPUComputationRenderer.js";
 
 export class FluidSimulation {
   private resolution: number;
@@ -79,11 +79,11 @@ export class FluidSimulation {
 
   private async initShaders(): Promise<void> {
     // シェーダーの読み込み
-    const velocityShader = await fetch("velocity.frag").then((r) => r.text());
-    const divergenceShader = await fetch("divergence.frag").then((r) =>
+    const velocityShader = await fetch("/velocity.frag").then((r) => r.text());
+    const divergenceShader = await fetch("/divergence.frag").then((r) =>
       r.text()
     );
-    const pressureShader = await fetch("pressure.frag").then((r) => r.text());
+    const pressureShader = await fetch("/pressure.frag").then((r) => r.text());
 
     // 速度更新シェーダー
     this.velocityVariable = this.gpuCompute.addVariable(
@@ -109,14 +109,14 @@ export class FluidSimulation {
     // 依存関係の設定
     this.gpuCompute.setVariableDependencies(this.velocityVariable, [
       this.velocityVariable,
-      this.pressureVariable,
+      this.pressureVariable
     ]);
     this.gpuCompute.setVariableDependencies(this.divergenceVariable, [
-      this.velocityVariable,
+      this.velocityVariable
     ]);
     this.gpuCompute.setVariableDependencies(this.pressureVariable, [
       this.pressureVariable,
-      this.divergenceVariable,
+      this.divergenceVariable
     ]);
 
     // ユニフォーム変数の設定

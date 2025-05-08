@@ -1,5 +1,4 @@
 // 発散計算シェーダー
-uniform sampler2D velocityTexture;
 uniform float cellSize;
 
 void main() {

@@ -1,5 +1,4 @@
 // 速度場の更新シェーダー
-uniform sampler2D velocityTexture;
 uniform vec2 mousePos;
 uniform vec2 mouseDelta;
 uniform float dt;
