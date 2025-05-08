@@ -1,4 +1,4 @@
-import * as THREE from "npm:three@0.150.0";
+import * as THREE from "three";
 import { FluidSimulation } from "./simulation/FluidSimulation.ts";
 
 // Three.jsのセットアップ

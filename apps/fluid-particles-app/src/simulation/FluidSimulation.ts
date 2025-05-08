@@ -1,5 +1,5 @@
-import * as THREE from "npm:three@0.150.0";
-import { GPUComputationRenderer } from "npm:three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js";
+import * as THREE from "three";
+import { GPUComputationRenderer } from "three/examples/jsm/misc/GPUComputationRenderer";
 
 export class FluidSimulation {
   private resolution: number;
@@ -79,15 +79,11 @@ export class FluidSimulation {
 
   private async initShaders(): Promise<void> {
     // シェーダーの読み込み
-    const velocityShader = await Deno.readTextFile(
-      "../../src/simulation/shaders/velocity.frag"
+    const velocityShader = await fetch("velocity.frag").then((r) => r.text());
+    const divergenceShader = await fetch("divergence.frag").then((r) =>
+      r.text()
     );
-    const divergenceShader = await Deno.readTextFile(
-      "../../src/simulation/shaders/divergence.frag"
-    );
-    const pressureShader = await Deno.readTextFile(
-      "../../src/simulation/shaders/pressure.frag"
-    );
+    const pressureShader = await fetch("pressure.frag").then((r) => r.text());
 
     // 速度更新シェーダー
     this.velocityVariable = this.gpuCompute.addVariable(

@@ -65,7 +65,11 @@ deno task dev
 deno task build
 ```
 
-このコマンドは `src/main.ts` をバンドルして `static/main.js` を生成します。
+このコマンドは `src/main.ts` をコンパイルして `static/main` を生成します。
+
+### 依存関係の管理
+
+このプロジェクトでは、Three.js などの主要な依存関係は CDN（npm）から直接インポートしています。これは開発環境とプロダクション環境の両方で同じ設定を使用します。依存関係の設定は `deno.jsonc` の `imports` セクションで管理されています。
 
 ### 監視モードでのビルド
 
