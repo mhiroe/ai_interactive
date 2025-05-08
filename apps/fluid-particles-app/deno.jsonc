@@ -1,10 +1,20 @@
 {
+  "include": ["../../deno.json"],
   "tasks": {
-    "dev": "deno run --allow-net --allow-read src/server.ts",
-    "build": "deno bundle --config ../../deno.jsonc src/main.ts static/main.js"
+    "start": "deno run --allow-net --allow-read --allow-env src/server.ts",
+    "dev": "deno run --allow-net --allow-read --allow-env --watch src/server.ts",
+    "build": "deno compile --output=static/main src/main.ts",
+    "build:watch": "deno bundle --watch --outputs=src/main.ts > static/main.js",
+    "client": "deno run --allow-net --allow-read --allow-env --watch src/main.ts"
+  },
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "dom.asynciterable", "deno.ns"]
   },
   "imports": {
     "three": "npm:three@0.150.0",
-    "three/examples/jsm/misc/GPUComputationRenderer": "npm:three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js"
+    "@types/three": "npm:@types/three@0.150.0",
+    "three/examples/jsm/misc/GPUComputationRenderer": "npm:three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js",
+    "std/http/server": "https://deno.land/std@0.177.0/http/server.ts",
+    "std/http/file_server": "https://deno.land/std@0.177.0/http/file_server.ts"
   }
 }

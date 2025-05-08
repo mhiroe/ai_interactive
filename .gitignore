@@ -49,3 +49,6 @@ deno.lock
 apps/nh_top/*
 apps/nh_top/
 apps/nh_top/
+
+# build files
+apps/fluid-nh_top/static/*
