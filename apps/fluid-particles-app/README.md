@@ -57,6 +57,22 @@ deno task dev
 - 自動再読み込み
 - 開発サーバーの起動（http://localhost:8000）
 
+### テストの実行
+
+テストを実行するには以下のコマンドを実行します：
+
+```bash
+deno task test
+```
+
+このコマンドは以下のテストを実行します：
+- ユニットテスト
+- インテグレーションテスト
+- シミュレーションのテスト
+
+## 停止
+kill -f "deno run"
+
 ### ビルドとデプロイ
 
 #### ビルド
@@ -70,8 +86,7 @@ deno task build
 このコマンドは以下の処理を行います：
 
 1. シェーダーファイルのコピー
-   - `src/simulation/shaders/*.{frag,vert}` から `static/` へシェーダーファイルをコピー
-   - フラグメントシェーダー（*.frag）と頂点シェーダー（*.vert）の両方をコピー
+   - `src/simulation/shaders/*.{frag,vert}` から `static/` へシェーダーファイルをコピー (または、ビルドプロセスに合わせて修正)
    - シェーダーファイルはソースコードとして `src/simulation/shaders/` で管理し、ビルド時に配信用ディレクトリにコピー
 
 2. TypeScript のバンドル
@@ -84,9 +99,11 @@ deno task build
 このプロジェクトは `static/` ディレクトリのみを公開する設計になっています：
 
 - `static/` ディレクトリ構成
-  - `index.html` - メインのHTMLファイル（Three.js と GPUComputationRenderer を CDN から読み込み）
+  - `index.html` - メインのHTMLファイル
   - `main.js` - ビルドされたJavaScriptファイル
   - `*.{frag,vert}` - シェーダーファイル（ビルド時にコピー）
+  - `three.module.js` - Three.js モジュール
+  - `GPUComputationRenderer.js` - GPUComputationRenderer モジュール
 
 デプロイ時は `static/` ディレクトリの内容のみを配信サーバーにアップロードしてください。これにより：
 - ソースコードとビルド結果が明確に分離される
@@ -95,15 +112,7 @@ deno task build
 
 ### 依存関係の管理
 
-このプロジェクトでは、Three.js などの主要な依存関係は CDN から直接インポートしています：
-
-- Three.js: unpkg.com から version 0.150.0 を読み込み
-- GPUComputationRenderer: Three.js examples から読み込み（同じく version 0.150.0）
-
-これにより：
-- バージョンが固定され、再現性が確保される
-- CDN のキャッシュを活用できる
-- プロジェクトのサイズを小さく保てる
+このプロジェクトでは、Three.js などの主要な依存関係は CDN（npm）から直接インポートしています。これは開発環境とプロダクション環境の両方で同じ設定を使用します。依存関係の設定は `deno.jsonc` の `imports` セクションで管理されています。
 
 ## プロジェクト構造
 

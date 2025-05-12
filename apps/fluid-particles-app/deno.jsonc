@@ -3,8 +3,9 @@
   "tasks": {
     "start": "deno run --allow-net --allow-read --allow-env src/server.ts",
     "dev": "deno run --allow-net --allow-read --allow-env --watch src/server.ts",
-    "build": "sh -c 'cp src/simulation/shaders/*.{frag,vert} static/ && npx esbuild src/main.ts --bundle --outfile=static/main.js --format=esm --external:three --external:three/examples/jsm/misc/GPUComputationRenderer'",
-    "client": "deno run --allow-net --allow-read --allow-env --watch src/main.ts"
+    "build": "sh -c 'mkdir -p static/shaders && cp src/simulation/shaders/*.frag src/simulation/shaders/*.vert static/shaders/ && npx esbuild src/main.ts --bundle --outfile=static/main.js --format=esm --external:three --external:three/examples/jsm/misc/GPUComputationRenderer'",
+    "client": "deno run --allow-net --allow-read --allow-env --watch src/main.ts",
+    "test": "deno test --allow-net --allow-read --allow-env --allow-import"
   },
   "compilerOptions": {
     "lib": ["dom", "dom.iterable", "dom.asynciterable", "deno.ns"]
@@ -12,8 +13,9 @@
   "imports": {
     "three": "npm:three@0.150.0",
     "@types/three": "npm:@types/three@0.150.0",
-    "three/examples/jsm/misc/GPUComputationRenderer": "npm:three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js",
     "std/http/server": "https://deno.land/std@0.177.0/http/server.ts",
-    "std/http/file_server": "https://deno.land/std@0.177.0/http/file_server.ts"
+    "std/http/file_server": "https://deno.land/std@0.177.0/http/file_server.ts",
+    "@std/expect": "jsr:@std/expect@^0.218.2",
+    "@std/testing/bdd": "jsr:@std/testing@^0.218.2/bdd"
   }
 }

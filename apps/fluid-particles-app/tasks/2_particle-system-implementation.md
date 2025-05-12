@@ -20,7 +20,6 @@ export class ParticleSystem {
     
     // テクスチャの初期化
     this.positionTexture = this.gpuCompute.createTexture();
-    this.velocityTexture = this.gpuCompute.createTexture();
     this.lifeTexture = this.gpuCompute.createTexture();
     
     this.initTextures();
@@ -160,7 +159,6 @@ export class ParticleSystem {
   resolution: number;
   gpuCompute: GPUComputationRenderer;
   positionTexture: THREE.DataTexture;
-  velocityTexture: THREE.DataTexture;
   lifeTexture: THREE.DataTexture;
   positionVariable: any;
   lifeVariable: any;
@@ -177,7 +175,6 @@ export class ParticleSystem {
     
     // テクスチャの初期化
     this.positionTexture = this.gpuCompute.createTexture();
-    this.velocityTexture = this.gpuCompute.createTexture();
     this.lifeTexture = this.gpuCompute.createTexture();
     
     this.initTextures();

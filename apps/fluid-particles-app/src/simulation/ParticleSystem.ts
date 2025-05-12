@@ -1,0 +1,183 @@
+import * as THREE from "three";
+import { GPUComputationRenderer } from "https://unpkg.com/three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js";
+
+export class ParticleSystem {
+  renderer: THREE.WebGLRenderer;
+  particleCount: number;
+  resolution: number;
+  gpuCompute: GPUComputationRenderer;
+  positionTexture: THREE.DataTexture;
+  velocityTexture: THREE.DataTexture;
+  lifeTexture: THREE.DataTexture;
+  positionVariable: any;
+  lifeVariable: any;
+  positionUniforms: any;
+  lifeUniforms: any;
+  particleMesh!: THREE.Points;
+
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    options: { particleCount?: number },
+  ) {
+    this.renderer = renderer;
+    this.particleCount = options.particleCount || 65536; // 256 * 256
+    this.resolution = Math.sqrt(this.particleCount);
+
+    this.gpuCompute = new GPUComputationRenderer(
+      this.resolution,
+      this.resolution,
+      renderer,
+    );
+
+    // テクスチャの初期化
+    this.positionTexture = this.gpuCompute.createTexture();
+    this.velocityTexture = this.gpuCompute.createTexture();
+    this.lifeTexture = this.gpuCompute.createTexture();
+
+    this.initTextures();
+    this.initParticleMesh();
+    this.initShaders();
+  }
+
+  private initTextures() {
+    // 位置テクスチャの初期化
+    const positionData = this.positionTexture.image.data;
+    for (let i = 0; i < positionData.length; i += 4) {
+      // ランダムな位置を設定
+      positionData[i] = Math.random() * 2 - 1; // x
+      positionData[i + 1] = Math.random() * 2 - 1; // y
+      positionData[i + 2] = 0; // z
+      positionData[i + 3] = 1;
+    }
+
+    // 寿命テクスチャの初期化
+    const lifeData = this.lifeTexture.image.data;
+    for (let i = 0; i < lifeData.length; i += 4) {
+      // ランダムな寿命を設定
+      const startTime = -Math.random() * 4.0;
+      const duration = Math.random() * 5.0 + 1.0;
+      lifeData[i] = startTime; // 現在の時間
+      lifeData[i + 1] = duration; // 寿命の長さ
+      lifeData[i + 2] = 0;
+      lifeData[i + 3] = 1;
+    }
+  }
+
+  private initParticleMesh() {
+    // パーティクルのジオメトリ
+    const geometry = new THREE.BufferGeometry();
+
+    // UVを生成（テクスチャからデータを取得するため）
+    const uvs = new Float32Array(this.particleCount * 2);
+    for (let i = 0; i < this.resolution; i++) {
+      for (let j = 0; j < this.resolution; j++) {
+        const idx = i * this.resolution + j;
+        uvs[idx * 2] = j / (this.resolution - 1);
+        uvs[idx * 2 + 1] = i / (this.resolution - 1);
+      }
+    }
+
+    geometry.setAttribute("uv", new THREE.BufferAttribute(uvs, 2));
+
+    // パーティクルのマテリアル
+    const material = new THREE.ShaderMaterial({
+      uniforms: {
+        positionTexture: { value: null },
+        velocityTexture: { value: null },
+        lifeTexture: { value: null },
+      },
+      vertexShader: "", // initShadersで設定
+      fragmentShader: "", // initShadersで設定
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    // パーティクルメッシュの作成
+    this.particleMesh = new THREE.Points(geometry, material);
+  }
+
+  private async initShaders() {
+    // シェーダーの読み込み
+    const positionShader = await fetch("./shaders/position.frag").then((r) =>
+      r.text()
+    );
+    const lifeShader = await fetch("./shaders/life.frag").then((r) => r.text());
+    const particleVertexShader = await fetch("./shaders/particle.vert").then((
+      r,
+    ) => r.text());
+    const particleFragmentShader = await fetch("./shaders/particle.frag").then((
+      r,
+    ) => r.text());
+
+    // 位置更新シェーダー
+    this.positionVariable = this.gpuCompute.addVariable(
+      "positionTexture",
+      positionShader,
+      this.positionTexture,
+    );
+
+    // 寿命更新シェーダー
+    this.lifeVariable = this.gpuCompute.addVariable(
+      "lifeTexture",
+      lifeShader,
+      this.lifeTexture,
+    );
+
+    // 依存関係の設定
+    this.gpuCompute.setVariableDependencies(this.positionVariable, [
+      this.positionVariable,
+      this.lifeVariable,
+    ]);
+    this.gpuCompute.setVariableDependencies(this.lifeVariable, [
+      this.lifeVariable,
+    ]);
+
+    // ユニフォーム変数の設定
+    this.positionUniforms = this.positionVariable.material.uniforms;
+    this.positionUniforms.velocityFieldTexture = { value: null };
+    this.positionUniforms.dt = { value: 0.016 };
+
+    this.lifeUniforms = this.lifeVariable.material.uniforms;
+    this.lifeUniforms.dt = { value: 0.016 };
+
+    // GPUComputationRendererの初期化
+    this.gpuCompute.init();
+
+    // パーティクルのシェーダーを設定
+    const material = this.particleMesh.material as THREE.ShaderMaterial;
+    material.vertexShader = particleVertexShader;
+    material.fragmentShader = particleFragmentShader;
+  }
+
+  update(velocityFieldTexture: THREE.Texture) {
+    // 速度場テクスチャの更新
+    this.positionUniforms.velocityFieldTexture.value = velocityFieldTexture;
+
+    // パーティクルの位置と寿命の更新
+    this.gpuCompute.compute();
+
+    // パーティクルメッシュのテクスチャを更新
+    const material = this.particleMesh.material as THREE.ShaderMaterial;
+    material.uniforms.positionTexture.value =
+      this.gpuCompute.getCurrentRenderTarget(this.positionVariable).texture;
+    material.uniforms.lifeTexture.value =
+      this.gpuCompute.getCurrentRenderTarget(this.lifeVariable).texture;
+    material.uniforms.velocityTexture.value = velocityFieldTexture;
+  }
+
+  dispose() {
+    // リソースの解放
+    this.gpuCompute.dispose();
+    if (this.particleMesh.geometry) {
+      this.particleMesh.geometry.dispose();
+    }
+    if (this.particleMesh.material instanceof THREE.Material) {
+      this.particleMesh.material.dispose();
+    }
+  }
+
+  getMesh(): THREE.Points {
+    return this.particleMesh;
+  }
+}

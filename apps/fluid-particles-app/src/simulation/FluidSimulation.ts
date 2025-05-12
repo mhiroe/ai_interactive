@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GPUComputationRenderer } from "../../static/GPUComputationRenderer.js";
+import { GPUComputationRenderer } from "https://unpkg.com/three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js";
 
 export class FluidSimulation {
   private resolution: number;
@@ -41,7 +41,7 @@ export class FluidSimulation {
     this.gpuCompute = new GPUComputationRenderer(
       resolution,
       resolution,
-      renderer
+      renderer,
     );
 
     // テクスチャの初期化
@@ -79,58 +79,62 @@ export class FluidSimulation {
 
   private async initShaders(): Promise<void> {
     // シェーダーの読み込み
-    const velocityShader = await fetch("/velocity.frag").then((r) => r.text());
-    const divergenceShader = await fetch("/divergence.frag").then((r) =>
+    const velocityShader = await fetch("./shaders/velocity.frag").then((r) =>
       r.text()
     );
-    const pressureShader = await fetch("/pressure.frag").then((r) => r.text());
+    const divergenceShader = await fetch("./shaders/divergence.frag").then((
+      r,
+    ) => r.text());
+    const pressureShader = await fetch("./shaders/pressure.frag").then((r) =>
+      r.text()
+    );
 
     // 速度更新シェーダー
     this.velocityVariable = this.gpuCompute.addVariable(
       "velocityTexture",
       velocityShader,
-      this.velocityTexture
+      this.velocityTexture,
     );
 
     // 発散計算シェーダー
     this.divergenceVariable = this.gpuCompute.addVariable(
       "divergenceTexture",
       divergenceShader,
-      this.divergenceTexture
+      this.divergenceTexture,
     );
 
     // 圧力計算シェーダー
     this.pressureVariable = this.gpuCompute.addVariable(
       "pressureTexture",
       pressureShader,
-      this.pressureTexture
+      this.pressureTexture,
     );
 
     // 依存関係の設定
     this.gpuCompute.setVariableDependencies(this.velocityVariable, [
       this.velocityVariable,
-      this.pressureVariable
+      this.pressureVariable,
     ]);
     this.gpuCompute.setVariableDependencies(this.divergenceVariable, [
-      this.velocityVariable
+      this.velocityVariable,
     ]);
     this.gpuCompute.setVariableDependencies(this.pressureVariable, [
       this.pressureVariable,
-      this.divergenceVariable
+      this.divergenceVariable,
     ]);
 
     // ユニフォーム変数の設定
     Object.assign(
       this.velocityVariable.material.uniforms,
-      this.velocityUniforms
+      this.velocityUniforms,
     );
     Object.assign(
       this.divergenceVariable.material.uniforms,
-      this.divergenceUniforms
+      this.divergenceUniforms,
     );
     Object.assign(
       this.pressureVariable.material.uniforms,
-      this.pressureUniforms
+      this.pressureUniforms,
     );
 
     // GPUComputationRendererの初期化
