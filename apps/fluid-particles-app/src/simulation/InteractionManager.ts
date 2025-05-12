@@ -1,16 +1,23 @@
+import * as THREE from "three";
+
 /**
  * インタラクション管理クラス
  * マウスやタッチイベントを処理し、流体シミュレーションに入力を提供します
  */
 export class InteractionManager {
   private element: HTMLElement;
-  private mousePosition: { x: number; y: number } = { x: 0, y: 0 };
-  private previousMousePosition: { x: number; y: number } = { x: 0, y: 0 };
-  private mouseDelta: { x: number; y: number } = { x: 0, y: 0 };
-  private isPointerDown: boolean = false;
+  private mousePos: THREE.Vector2;
+  private mouseDelta: THREE.Vector2;
+  private lastMousePos: THREE.Vector2;
+  private isPointerDown: boolean;
 
   constructor(element: HTMLElement) {
     this.element = element;
+    this.mousePos = new THREE.Vector2(0, 0);
+    this.mouseDelta = new THREE.Vector2(0, 0);
+    this.lastMousePos = new THREE.Vector2(0, 0);
+    this.isPointerDown = false;
+
     this.setupEventListeners();
   }
 
@@ -19,127 +26,79 @@ export class InteractionManager {
    */
   private setupEventListeners(): void {
     // マウスイベント
-    this.element.addEventListener("mousemove", this.handleMouseMove.bind(this));
-    this.element.addEventListener("mousedown", this.handleMouseDown.bind(this));
-    this.element.addEventListener("mouseup", this.handleMouseUp.bind(this));
-    this.element.addEventListener("mouseleave", this.handleMouseUp.bind(this));
+    this.element.addEventListener("mousemove", this.onMouseMove.bind(this));
+    this.element.addEventListener("mousedown", this.onPointerDown.bind(this));
+    this.element.addEventListener("mouseup", this.onPointerUp.bind(this));
+    this.element.addEventListener("mouseleave", this.onPointerUp.bind(this));
 
     // タッチイベント
-    this.element.addEventListener(
-      "touchmove",
-      this.handleTouchMove.bind(this),
-      { passive: false }
-    );
-    this.element.addEventListener(
-      "touchstart",
-      this.handleTouchStart.bind(this),
-      { passive: false }
-    );
-    this.element.addEventListener("touchend", this.handleTouchEnd.bind(this));
+    this.element.addEventListener("touchmove", this.onTouchMove.bind(this), {
+      passive: false,
+    });
+    this.element.addEventListener("touchstart", this.onTouchStart.bind(this), {
+      passive: false,
+    });
+    this.element.addEventListener("touchend", this.onTouchEnd.bind(this), {
+      passive: false,
+    });
   }
 
   /**
    * マウス移動イベントハンドラ
    */
-  private handleMouseMove(event: MouseEvent): void {
-    this.previousMousePosition = { ...this.mousePosition };
-
-    // 正規化された座標に変換
-    const rect = this.element.getBoundingClientRect();
-    this.mousePosition = {
-      x: (event.clientX - rect.left) / rect.width,
-      y: 1.0 - (event.clientY - rect.top) / rect.height, // Y座標を反転
-    };
-
-    this.updateMouseDelta();
+  private onMouseMove(event: MouseEvent): void {
+    this.updateMousePosition(event.clientX, event.clientY);
   }
 
-  /**
-   * マウスボタン押下イベントハンドラ
-   */
-  private handleMouseDown(event: MouseEvent): void {
+  private onTouchMove(event: TouchEvent): void {
+    event.preventDefault();
+    const touch = event.touches[0];
+    this.updateMousePosition(touch.clientX, touch.clientY);
+  }
+
+  private onPointerDown(): void {
     this.isPointerDown = true;
-    this.handleMouseMove(event);
   }
 
-  /**
-   * マウスボタン解放イベントハンドラ
-   */
-  private handleMouseUp(): void {
+  private onPointerUp(): void {
     this.isPointerDown = false;
-    this.mouseDelta = { x: 0, y: 0 };
   }
 
-  /**
-   * タッチ移動イベントハンドラ
-   */
-  private handleTouchMove(event: TouchEvent): void {
+  private onTouchStart(event: TouchEvent): void {
     event.preventDefault();
-    if (event.touches.length > 0) {
-      const touch = event.touches[0];
-      const mouseEvent = new MouseEvent("mousemove", {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-      });
-      this.handleMouseMove(mouseEvent);
-    }
+    this.isPointerDown = true;
+    const touch = event.touches[0];
+    this.updateMousePosition(touch.clientX, touch.clientY);
   }
 
-  /**
-   * タッチ開始イベントハンドラ
-   */
-  private handleTouchStart(event: TouchEvent): void {
+  private onTouchEnd(event: TouchEvent): void {
     event.preventDefault();
-    if (event.touches.length > 0) {
-      const touch = event.touches[0];
-      const mouseEvent = new MouseEvent("mousedown", {
-        clientX: touch.clientX,
-        clientY: touch.clientY,
-      });
-      this.handleMouseDown(mouseEvent);
+    this.isPointerDown = false;
+  }
+
+  private updateMousePosition(x: number, y: number): void {
+    // 正規化された座標に変換
+    this.mousePos.x = (x / window.innerWidth) * 2 - 1;
+    this.mousePos.y = -(y / window.innerHeight) * 2 + 1;
+
+    // 移動量を計算
+    this.mouseDelta.x = this.mousePos.x - this.lastMousePos.x;
+    this.mouseDelta.y = this.mousePos.y - this.lastMousePos.y;
+
+    // 前回の位置を更新
+    this.lastMousePos.copy(this.mousePos);
+  }
+
+  getMousePosition(): THREE.Vector2 {
+    return this.mousePos.clone();
+  }
+
+  getMouseDelta(): THREE.Vector2 {
+    // ポインターが押されていない場合は移動量を0に
+    if (!this.isPointerDown) {
+      return new THREE.Vector2(0, 0);
     }
-  }
-
-  /**
-   * タッチ終了イベントハンドラ
-   */
-  private handleTouchEnd(): void {
-    this.handleMouseUp();
-  }
-
-  /**
-   * マウスの移動量を更新
-   */
-  private updateMouseDelta(): void {
-    if (this.isPointerDown) {
-      this.mouseDelta = {
-        x: this.mousePosition.x - this.previousMousePosition.x,
-        y: this.mousePosition.y - this.previousMousePosition.y,
-      };
-    } else {
-      this.mouseDelta = { x: 0, y: 0 };
-    }
-  }
-
-  /**
-   * 現在のマウス位置を取得
-   */
-  getMousePosition(): { x: number; y: number } {
-    return this.mousePosition;
-  }
-
-  /**
-   * マウスの移動量を取得
-   */
-  getMouseDelta(): { x: number; y: number } {
-    return this.mouseDelta;
-  }
-
-  /**
-   * ポインターが押下されているかを取得
-   */
-  getIsPointerDown(): boolean {
-    return this.isPointerDown;
+    return this.mouseDelta.clone();
   }
 
   /**
@@ -147,30 +106,19 @@ export class InteractionManager {
    */
   dispose(): void {
     // イベントリスナーの削除
-    this.element.removeEventListener(
-      "mousemove",
-      this.handleMouseMove.bind(this)
-    );
+    this.element.removeEventListener("mousemove", this.onMouseMove.bind(this));
     this.element.removeEventListener(
       "mousedown",
-      this.handleMouseDown.bind(this)
+      this.onPointerDown.bind(this),
     );
-    this.element.removeEventListener("mouseup", this.handleMouseUp.bind(this));
-    this.element.removeEventListener(
-      "mouseleave",
-      this.handleMouseUp.bind(this)
-    );
-    this.element.removeEventListener(
-      "touchmove",
-      this.handleTouchMove.bind(this)
-    );
+    this.element.removeEventListener("mouseup", this.onPointerUp.bind(this));
+    this.element.removeEventListener("mouseleave", this.onPointerUp.bind(this));
+
+    this.element.removeEventListener("touchmove", this.onTouchMove.bind(this));
     this.element.removeEventListener(
       "touchstart",
-      this.handleTouchStart.bind(this)
+      this.onTouchStart.bind(this),
     );
-    this.element.removeEventListener(
-      "touchend",
-      this.handleTouchEnd.bind(this)
-    );
+    this.element.removeEventListener("touchend", this.onTouchEnd.bind(this));
   }
 }

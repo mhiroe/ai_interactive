@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { GPUComputationRenderer } from "https://unpkg.com/three@0.150.0/examples/jsm/misc/GPUComputationRenderer.js";
+import { GPUComputationRenderer } from "three/examples/jsm/misc/GPUComputationRenderer";
 
 export class FluidSimulation {
   private resolution: number;
@@ -36,6 +36,8 @@ export class FluidSimulation {
     beta: { value: 0.25 },
   };
 
+  private initialized: boolean = false;
+
   constructor(renderer: THREE.WebGLRenderer, resolution: number) {
     this.resolution = resolution;
     this.gpuCompute = new GPUComputationRenderer(
@@ -54,7 +56,9 @@ export class FluidSimulation {
     this.pressureUniforms.cellSize.value = 1.0 / resolution;
 
     this.initTextures();
-    this.initShaders();
+    this.initShaders().then(() => {
+      this.initialized = true;
+    });
   }
 
   private initTextures(): void {
@@ -144,7 +148,13 @@ export class FluidSimulation {
     }
   }
 
-  update(mousePos: THREE.Vector2, mouseDelta: THREE.Vector2): THREE.Texture {
+  update(
+    mousePos: THREE.Vector2,
+    mouseDelta: THREE.Vector2,
+  ): THREE.Texture | null {
+    if (!this.initialized) {
+      return null;
+    }
     // マウス位置と移動量の更新
     this.velocityUniforms.mousePos.value.copy(mousePos);
     this.velocityUniforms.mouseDelta.value.copy(mouseDelta);
