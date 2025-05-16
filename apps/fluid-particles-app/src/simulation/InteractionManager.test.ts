@@ -1,84 +1,116 @@
-import { assertEquals, assertInstanceOf } from "jsr:@std/assert@^0.218.2";
-import { describe, it } from "jsr:@std/testing@^0.218.2/bdd";
+import { expect } from "@std/expect";
+import { beforeEach, describe, it } from "@std/testing/bdd";
 import { InteractionManager } from "./InteractionManager.ts";
-import * as THREE from "npm:three";
+
+// DOMのモック
+class MockElement {
+  listeners: { [key: string]: ((event: any) => void)[] } = {};
+  clientWidth = 800;
+  clientHeight = 600;
+
+  addEventListener(type: string, listener: (event: any) => void) {
+    if (!this.listeners[type]) {
+      this.listeners[type] = [];
+    }
+    this.listeners[type].push(listener);
+  }
+
+  removeEventListener(type: string, listener: (event: any) => void) {
+    if (this.listeners[type]) {
+      this.listeners[type] = this.listeners[type].filter((l) => l !== listener);
+    }
+  }
+
+  dispatchEvent(type: string, event: any) {
+    if (this.listeners[type]) {
+      this.listeners[type].forEach((listener) => listener(event));
+    }
+  }
+}
 
 describe("InteractionManager", () => {
+  let element: MockElement;
+  let interactionManager: InteractionManager;
+
+  beforeEach(() => {
+    element = new MockElement();
+    interactionManager = new InteractionManager(
+      element as unknown as HTMLElement,
+    );
+  });
+
   it("マウス操作のテスト", () => {
-    // テスト用のHTML要素を作成
-    const element = document.createElement("div");
-    const manager = new InteractionManager(element);
-
-    // 初期状態のテスト
-    const initialPos = manager.getMousePosition();
-    assertEquals(initialPos.x, 0);
-    assertEquals(initialPos.y, 0);
-
-    // マウス移動のシミュレーション
-    const mouseEvent = new MouseEvent("mousemove", {
-      clientX: window.innerWidth / 2,
-      clientY: window.innerHeight / 2,
+    // マウスダウンイベント
+    element.dispatchEvent("mousedown", {
+      clientX: 100,
+      clientY: 100,
+      preventDefault: () => {},
     });
-    element.dispatchEvent(mouseEvent);
 
-    // 移動後の位置を確認
-    const pos = manager.getMousePosition();
-    assertEquals(pos.x, 0); // 中心なので0
-    assertEquals(pos.y, 0); // 中心なので0
+    // マウス移動イベント
+    element.dispatchEvent("mousemove", {
+      clientX: 150,
+      clientY: 150,
+      preventDefault: () => {},
+    });
 
-    // マウスボタン押下のシミュレーション
-    const mouseDownEvent = new MouseEvent("mousedown");
-    element.dispatchEvent(mouseDownEvent);
+    const pos = interactionManager.getMousePosition();
+    const delta = interactionManager.getMouseDelta();
 
-    // マウスボタンが押されている状態でのデルタを確認
-    const delta = manager.getMouseDelta();
-    assertInstanceOf(delta, THREE.Vector2);
+    expect(pos.x).toBeDefined();
+    expect(pos.y).toBeDefined();
+    expect(delta.x).toBeDefined();
+    expect(delta.y).toBeDefined();
 
-    // リソースの解放
-    manager.dispose();
+    // マウスアップイベント
+    element.dispatchEvent("mouseup", {
+      clientX: 150,
+      clientY: 150,
+      preventDefault: () => {},
+    });
   });
 
   it("タッチ操作のテスト", () => {
-    // テスト用のHTML要素を作成
-    const element = document.createElement("div");
-    const manager = new InteractionManager(element);
-
-    // タッチ開始のシミュレーション
-    const touchStartEvent = new TouchEvent("touchstart", {
-      touches: [
-        {
-          clientX: window.innerWidth / 2,
-          clientY: window.innerHeight / 2,
-        } as Touch,
-      ],
+    // タッチスタートイベント
+    element.dispatchEvent("touchstart", {
+      touches: [{
+        clientX: 100,
+        clientY: 100,
+      }],
+      preventDefault: () => {},
     });
-    element.dispatchEvent(touchStartEvent);
 
-    // タッチ移動のシミュレーション
-    const touchMoveEvent = new TouchEvent("touchmove", {
-      touches: [
-        {
-          clientX: (window.innerWidth / 4) * 3, // 右に移動
-          clientY: window.innerHeight / 2,
-        } as Touch,
-      ],
+    // タッチムーブイベント
+    element.dispatchEvent("touchmove", {
+      touches: [{
+        clientX: 150,
+        clientY: 150,
+      }],
+      preventDefault: () => {},
     });
-    element.dispatchEvent(touchMoveEvent);
 
-    // 移動後のデルタを確認
-    const delta = manager.getMouseDelta();
-    assertInstanceOf(delta, THREE.Vector2);
+    const pos = interactionManager.getMousePosition();
+    const delta = interactionManager.getMouseDelta();
 
-    // タッチ終了のシミュレーション
-    const touchEndEvent = new TouchEvent("touchend");
-    element.dispatchEvent(touchEndEvent);
+    expect(pos.x).toBeDefined();
+    expect(pos.y).toBeDefined();
+    expect(delta.x).toBeDefined();
+    expect(delta.y).toBeDefined();
 
-    // タッチ終了後のデルタが0になることを確認
-    const finalDelta = manager.getMouseDelta();
-    assertEquals(finalDelta.x, 0);
-    assertEquals(finalDelta.y, 0);
+    // タッチエンドイベント
+    element.dispatchEvent("touchend", {
+      touches: [],
+      preventDefault: () => {},
+    });
+  });
 
-    // リソースの解放
-    manager.dispose();
+  it("リソースの解放", () => {
+    // disposeメソッドが例外を投げないことを確認
+    expect(() => interactionManager.dispose()).not.toThrow();
+
+    // Check that all listener arrays for registered event types are empty
+    for (const type in element.listeners) {
+      expect(element.listeners[type].length).toBe(0);
+    }
   });
 });

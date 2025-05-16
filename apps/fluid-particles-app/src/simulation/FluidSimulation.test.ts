@@ -1,24 +1,24 @@
 import { expect } from "@std/expect";
 import { beforeEach, describe, it } from "@std/testing/bdd";
 import * as THREE from "three";
-import { ParticleSystem, ParticleSystemOptions } from "./ParticleSystem.ts";
+import { FluidSimulation } from "./FluidSimulation.ts";
 import { DeviceCapabilities } from "../utils/deviceDetection.ts";
 
 // モックシェーダー
 const mockShaders = {
-  position: `
+  velocity: `
     void main() {
       gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
   `,
-  life: `
+  divergence: `
     void main() {
       gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
   `,
-  particle: `
+  pressure: `
     void main() {
-      gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
     }
   `,
 };
@@ -236,11 +236,15 @@ const mockLowPerformanceDevice: DeviceCapabilities = {
 };
 
 // テスト用のモッククラス
-class TestParticleSystem extends ParticleSystem {
-  constructor(renderer: THREE.WebGLRenderer, options: ParticleSystemOptions) {
+class TestFluidSimulation extends FluidSimulation {
+  constructor(
+    renderer: THREE.WebGLRenderer,
+    resolution: number,
+    deviceCapabilities: DeviceCapabilities,
+  ) {
     // GPUComputationRendererをモックに置き換え
     (globalThis as any).GPUComputationRenderer = MockGPUComputationRenderer;
-    super(renderer, options);
+    super(renderer, resolution, deviceCapabilities);
   }
 
   // シェーダーのロードをオーバーライド
@@ -255,25 +259,18 @@ class TestParticleSystem extends ParticleSystem {
     return mockShaders[shaderType as keyof typeof mockShaders];
   }
 
-  // スクリーンサイズの設定をオーバーライド
-  public override setScreenSize(width: number, height: number): void {
-    super.setScreenSize(width, height);
-  }
-
   // テスト用のヘルパーメソッド
   getInternalState() {
     return {
-      particleCount: this.getParticleCount(),
-      resolution: this.getResolution(),
-      renderer: this.renderer,
-      positionTexture: this.positionTexture,
+      resolution: this.resolution,
       velocityTexture: this.velocityTexture,
-      lifeTexture: this.lifeTexture,
+      pressureTexture: this.pressureTexture,
+      divergenceTexture: this.divergenceTexture,
     };
   }
 }
 
-describe("ParticleSystem", () => {
+describe("FluidSimulation", () => {
   let renderer: THREE.WebGLRenderer;
 
   beforeEach(() => {
@@ -282,71 +279,66 @@ describe("ParticleSystem", () => {
   });
 
   it("基本的な初期化", () => {
-    const particleCount = 4096;
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount,
-      deviceCapabilities: mockHighPerformanceDevice,
-    });
+    const resolution = 256;
+    const simulation = new TestFluidSimulation(
+      renderer,
+      resolution,
+      mockHighPerformanceDevice,
+    );
 
-    const state = particleSystem.getInternalState();
-    expect(state.particleCount).toBe(particleCount);
-    expect(state.resolution).toBe(64); // sqrt(4096)
-    expect(state.renderer).toBe(renderer);
-  });
-
-  it("テクスチャの初期化", () => {
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount: 4096,
-      deviceCapabilities: mockHighPerformanceDevice,
-    });
-
-    const state = particleSystem.getInternalState();
-    expect(state.positionTexture).toBeDefined();
+    const state = simulation.getInternalState();
+    expect(state.resolution).toBe(resolution);
     expect(state.velocityTexture).toBeDefined();
-    expect(state.lifeTexture).toBeDefined();
+    expect(state.pressureTexture).toBeDefined();
+    expect(state.divergenceTexture).toBeDefined();
   });
 
-  it("パーティクル数の最適化（低性能デバイス）", () => {
-    const baseParticleCount = 65536; // 256 * 256
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount: baseParticleCount,
-      deviceCapabilities: mockLowPerformanceDevice,
-    });
+  it("低解像度での初期化（低性能デバイス）", () => {
+    const resolution = 128;
+    const simulation = new TestFluidSimulation(
+      renderer,
+      resolution,
+      mockLowPerformanceDevice,
+    );
 
-    const state = particleSystem.getInternalState();
-    // モバイル(0.5) * 低性能GPU(0.5) * 小画面(0.75) = 0.1875
-    // 65536 * 0.1875 = 12288、ただし2の累乗の平方根に調整される
-    expect(state.particleCount).toBeLessThan(baseParticleCount);
+    const state = simulation.getInternalState();
+    expect(state.resolution).toBe(resolution);
+  });
+
+  it("シミュレーションの更新", () => {
+    const simulation = new TestFluidSimulation(
+      renderer,
+      256,
+      mockHighPerformanceDevice,
+    );
+
+    const mousePos = new THREE.Vector2(0.5, 0.5);
+    const mouseDelta = new THREE.Vector2(0.1, 0.1);
+    const texture = simulation.update(mousePos, mouseDelta);
+
+    expect(texture).toBeDefined();
   });
 
   it("パフォーマンス情報の取得", () => {
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount: 4096,
-      deviceCapabilities: mockHighPerformanceDevice,
-    });
+    const simulation = new TestFluidSimulation(
+      renderer,
+      256,
+      mockHighPerformanceDevice,
+    );
 
-    const info = particleSystem.getPerformanceInfo();
-    expect(info.particleCount).toBe(4096);
-    expect(typeof info.averageFPS).toBe("number");
-  });
-
-  it("メッシュの取得", () => {
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount: 4096,
-      deviceCapabilities: mockHighPerformanceDevice,
-    });
-
-    const mesh = particleSystem.getMesh();
-    expect(mesh).toBeInstanceOf(THREE.Points);
+    const info = simulation.getPerformanceInfo();
+    expect(info.averageFPS).toBeDefined();
+    expect(info.pressureIterations).toBeDefined();
   });
 
   it("リソースの解放", () => {
-    const particleSystem = new TestParticleSystem(renderer, {
-      particleCount: 4096,
-      deviceCapabilities: mockHighPerformanceDevice,
-    });
+    const simulation = new TestFluidSimulation(
+      renderer,
+      256,
+      mockHighPerformanceDevice,
+    );
 
     // disposeメソッドが例外を投げないことを確認
-    expect(() => particleSystem.dispose()).not.toThrow();
+    expect(() => simulation.dispose()).not.toThrow();
   });
 });

@@ -1,13 +1,17 @@
+precision highp float;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
 uniform sampler2D positionTexture;
 uniform sampler2D velocityTexture;
 uniform sampler2D lifeTexture;
+
+attribute vec2 uv;
 
 varying float vVelocityMagnitude;
 varying float vLifeRatio;
 
 void main() {
-  vec2 uv = uv;
-  
   // テクスチャから位置、速度、寿命を取得
   vec4 position = texture2D(positionTexture, uv);
   vec2 velocity = texture2D(velocityTexture, uv).xy;

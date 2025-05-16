@@ -1,76 +1,98 @@
 import * as THREE from "three";
 import { FluidSimulation } from "./simulation/FluidSimulation.ts";
+import { ParticleSystem } from "./simulation/ParticleSystem.ts";
 import { InteractionManager } from "./simulation/InteractionManager.ts";
+import { detectDeviceCapabilities } from "./utils/deviceDetection.ts";
 
-// Three.jsのセットアップ
-const container = document.getElementById("container");
-if (!container) {
-  throw new Error("Container element not found");
-}
+// デバイス性能の検出
+const deviceCapabilities = detectDeviceCapabilities();
 
-// レンダラーの初期化
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-container.appendChild(renderer.domElement);
-
-// シーンとカメラのセットアップ
-const scene = new THREE.Scene();
-const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10);
-camera.position.z = 1;
-
-// 流体シミュレーションのセットアップ
-const SIMULATION_RESOLUTION = 256;
-const fluidSimulation = new FluidSimulation(renderer, SIMULATION_RESOLUTION);
-
-// インタラクションマネージャーのセットアップ
-const interactionManager = new InteractionManager(renderer.domElement);
-
-// 流体表示用のジオメトリ
-const geometry = new THREE.PlaneGeometry(1.8, 1.8);
-const material = new THREE.MeshBasicMaterial({
-  map: null, // シミュレーション結果のテクスチャを後で設定
-  transparent: true,
-  opacity: 0.8,
+// レンダラーの設定
+const renderer = new THREE.WebGLRenderer({
+  antialias: deviceCapabilities.gpuPerformance === "high",
 });
-const mesh = new THREE.Mesh(geometry, material);
-scene.add(mesh);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+// シーンの設定
+const scene = new THREE.Scene();
+
+// カメラの設定
+const aspectRatio = window.innerWidth / window.innerHeight;
+const frustumSize = 2;
+const camera = new THREE.OrthographicCamera(
+  (frustumSize * aspectRatio) / -2,
+  (frustumSize * aspectRatio) / 2,
+  frustumSize / 2,
+  frustumSize / -2,
+  -1000,
+  1000,
+);
+(camera as unknown as { position: THREE.Vector3 }).position.set(0, 0, 1);
+
+// 流体シミュレーションの初期化
+const fluidResolution = deviceCapabilities.gpuPerformance === "high"
+  ? 256
+  : 128;
+const fluidSimulation = new FluidSimulation(
+  renderer,
+  fluidResolution,
+  deviceCapabilities,
+);
+
+// パーティクルシステムの初期化
+const particleSystem = new ParticleSystem(renderer, {
+  particleCount: 65536,
+  deviceCapabilities,
+});
+scene.add(particleSystem.getMesh());
+
+// インタラクションマネージャーの初期化
+const interactionManager = new InteractionManager(renderer.domElement);
 
 // アニメーションループ
 function animate() {
   requestAnimationFrame(animate);
 
-  // 流体シミュレーションの更新
+  // マウス入力の更新
   const mousePos = interactionManager.getMousePosition();
   const mouseDelta = interactionManager.getMouseDelta();
-  const simulationTexture = fluidSimulation.update(mousePos, mouseDelta);
-  if (simulationTexture) {
-    material.map = simulationTexture;
-    material.needsUpdate = true;
-  }
 
+  // 流体シミュレーションの更新
+  const velocityTexture = fluidSimulation.update(mousePos, mouseDelta);
+
+  // パーティクルの更新
+  particleSystem.update(velocityTexture);
+
+  // レンダリング
   renderer.render(scene, camera);
 }
-animate();
 
-// リサイズハンドラ
-window.addEventListener("resize", () => {
+// リサイズハンドラー
+function onWindowResize() {
   const width = window.innerWidth;
   const height = window.innerHeight;
+  const aspect = width / height;
 
-  camera.left = -width / height;
-  camera.right = width / height;
-  camera.top = 1;
-  camera.bottom = -1;
+  camera.left = (frustumSize * aspect) / -2;
+  camera.right = (frustumSize * aspect) / 2;
+  camera.top = frustumSize / 2;
+  camera.bottom = frustumSize / -2;
   camera.updateProjectionMatrix();
 
   renderer.setSize(width, height);
-});
+  particleSystem.setScreenSize(width, height);
+}
+
+window.addEventListener("resize", onWindowResize);
+
+// アニメーション開始
+animate();
 
 // クリーンアップ
 window.addEventListener("beforeunload", () => {
   fluidSimulation.dispose();
-  interactionManager.dispose();
+  particleSystem.dispose();
+  renderer.dispose();
 });
-
-console.log("Fluid Particles App initialized");

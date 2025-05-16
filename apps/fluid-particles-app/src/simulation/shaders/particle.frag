@@ -1,3 +1,5 @@
+precision highp float;
+
 varying float vVelocityMagnitude;
 varying float vLifeRatio;
 

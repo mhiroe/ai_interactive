@@ -1,17 +1,15 @@
-// 発散計算シェーダー
-uniform float cellSize;
+uniform float dt;
 
 void main() {
-    vec2 uv = gl_FragCoord.xy / resolution.xy;
-    
-    // 隣接するセルの速度を取得
-    vec2 vL = texture2D(velocityTexture, uv - vec2(cellSize, 0.0)).xy;
-    vec2 vR = texture2D(velocityTexture, uv + vec2(cellSize, 0.0)).xy;
-    vec2 vT = texture2D(velocityTexture, uv + vec2(0.0, cellSize)).xy;
-    vec2 vB = texture2D(velocityTexture, uv - vec2(0.0, cellSize)).xy;
-    
-    // 発散を計算
-    float divergence = 0.5 * ((vR.x - vL.x) + (vT.y - vB.y));
-    
-    gl_FragColor = vec4(divergence, 0.0, 0.0, 1.0);
+  vec2 uv = gl_FragCoord.xy / resolution.xy;
+  
+  // 速度場の発散を計算
+  vec2 vL = texture(velocityTexture, uv - vec2(1.0 / resolution.x, 0.0)).xy;
+  vec2 vR = texture(velocityTexture, uv + vec2(1.0 / resolution.x, 0.0)).xy;
+  vec2 vB = texture(velocityTexture, uv - vec2(0.0, 1.0 / resolution.y)).xy;
+  vec2 vT = texture(velocityTexture, uv + vec2(0.0, 1.0 / resolution.y)).xy;
+  
+  float divergence = ((vR.x - vL.x) + (vT.y - vB.y)) * 0.5;
+  
+  pc_fragColor = vec4(divergence, 0.0, 0.0, 1.0);
 }
