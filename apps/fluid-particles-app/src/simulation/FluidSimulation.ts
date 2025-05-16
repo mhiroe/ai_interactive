@@ -23,7 +23,17 @@ export class FluidSimulation {
   protected initialized: boolean = false;
   protected pressureIterations: number = 20;
 
-  constructor(
+  static async create(
+    renderer: THREE.WebGLRenderer,
+    resolution: number,
+    deviceCapabilities: DeviceCapabilities,
+  ): Promise<FluidSimulation> {
+    const simulation = new FluidSimulation(renderer, resolution, deviceCapabilities);
+    await simulation.initialize();
+    return simulation;
+  }
+
+  private constructor(
     renderer: THREE.WebGLRenderer,
     resolution: number,
     deviceCapabilities: DeviceCapabilities,
@@ -51,9 +61,11 @@ export class FluidSimulation {
     this.divergenceTexture = this.gpuCompute.createTexture();
 
     this.initTextures();
-    this.initShaders().then(() => {
-      this.initialized = true;
-    });
+  }
+
+  private async initialize(): Promise<void> {
+    await this.initShaders();
+    this.initialized = true;
   }
 
   private initTextures() {
@@ -100,14 +112,18 @@ export class FluidSimulation {
   private async initShaders() {
     try {
       // シェーダーの読み込みと最適化
+      console.log("Loading shaders...");
       const [velocityShader, divergenceShader, pressureShader] = await Promise
         .all(
           [
             this.loadAndOptimizeShader("/shaders/velocity.frag"),
-            this.loadAndOptimizeShader("/shaders/divergence.frag"),
+            this.loadAndOptimizeShader(
+              "/shaders/divergence.frag",
+            ),
             this.loadAndOptimizeShader("/shaders/pressure.frag"),
           ],
         );
+      console.log("Shaders loaded successfully");
 
       // 速度場の更新シェーダー
       this.velocityVariable = this.gpuCompute.addVariable(
@@ -207,7 +223,10 @@ export class FluidSimulation {
   }
 
   update(mousePos: THREE.Vector2, mouseDelta: THREE.Vector2): THREE.Texture {
-    if (!this.initialized) return this.velocityTexture;
+    if (!this.initialized) {
+      console.log("FluidSimulation not yet initialized");
+      return this.velocityTexture;
+    }
 
     // パフォーマンスモニタリング
     const currentTime = performance.now();

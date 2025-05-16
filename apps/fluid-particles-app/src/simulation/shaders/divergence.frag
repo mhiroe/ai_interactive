@@ -1,3 +1,7 @@
+// GPUComputationRendererが自動的に追加するuniforms:
+// uniform sampler2D velocityTexture;
+// uniform vec2 resolution;
+
 uniform float dt;
 
 void main() {

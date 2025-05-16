@@ -31,68 +31,85 @@ const camera = new THREE.OrthographicCamera(
 );
 (camera as unknown as { position: THREE.Vector3 }).position.set(0, 0, 1);
 
-// 流体シミュレーションの初期化
-const fluidResolution = deviceCapabilities.gpuPerformance === "high"
-  ? 256
-  : 128;
-const fluidSimulation = new FluidSimulation(
-  renderer,
-  fluidResolution,
-  deviceCapabilities,
-);
+// メインの初期化関数
+async function init() {
+  try {
+    console.log("Initializing systems...");
 
-// パーティクルシステムの初期化
-const particleSystem = new ParticleSystem(renderer, {
-  particleCount: 65536,
-  deviceCapabilities,
-});
-scene.add(particleSystem.getMesh());
+    // 流体シミュレーションの初期化
+    const fluidResolution = deviceCapabilities.gpuPerformance === "high"
+      ? 256
+      : 128;
+    const fluidSimulation = await FluidSimulation.create(
+      renderer,
+      fluidResolution,
+      deviceCapabilities,
+    );
 
-// インタラクションマネージャーの初期化
-const interactionManager = new InteractionManager(renderer.domElement);
+    // パーティクルシステムの初期化
+    const particleSystem = await ParticleSystem.create(renderer, {
+      particleCount: 65536,
+      deviceCapabilities,
+    });
+    scene.add(particleSystem.getMesh());
 
-// アニメーションループ
-function animate() {
-  requestAnimationFrame(animate);
+    // インタラクションマネージャーの初期化
+    const interactionManager = new InteractionManager(renderer.domElement);
 
-  // マウス入力の更新
-  const mousePos = interactionManager.getMousePosition();
-  const mouseDelta = interactionManager.getMouseDelta();
+    console.log("All systems initialized successfully");
 
-  // 流体シミュレーションの更新
-  const velocityTexture = fluidSimulation.update(mousePos, mouseDelta);
+    // アニメーションループ
+    function animate() {
+      requestAnimationFrame(animate);
 
-  // パーティクルの更新
-  particleSystem.update(velocityTexture);
+      // マウス入力の更新
+      const mousePos = interactionManager.getMousePosition();
+      const mouseDelta = interactionManager.getMouseDelta();
 
-  // レンダリング
-  renderer.render(scene, camera);
+      // 流体シミュレーションの更新
+      const velocityTexture = fluidSimulation.update(mousePos, mouseDelta);
+
+      // パーティクルの更新
+      particleSystem.update(velocityTexture);
+
+      // レンダリング
+      renderer.render(scene, camera);
+    }
+
+    // リサイズハンドラー
+    function onWindowResize() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const aspect = width / height;
+
+      camera.left = (frustumSize * aspect) / -2;
+      camera.right = (frustumSize * aspect) / 2;
+      camera.top = frustumSize / 2;
+      camera.bottom = frustumSize / -2;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(width, height);
+      particleSystem.setScreenSize(width, height);
+    }
+
+    window.addEventListener("resize", onWindowResize);
+
+    // クリーンアップ
+    window.addEventListener("beforeunload", () => {
+      fluidSimulation.dispose();
+      particleSystem.dispose();
+      renderer.dispose();
+    });
+
+    // アニメーション開始
+    animate();
+  } catch (error) {
+    console.error("Initialization failed:", error);
+    throw error;
+  }
 }
 
-// リサイズハンドラー
-function onWindowResize() {
-  const width = window.innerWidth;
-  const height = window.innerHeight;
-  const aspect = width / height;
-
-  camera.left = (frustumSize * aspect) / -2;
-  camera.right = (frustumSize * aspect) / 2;
-  camera.top = frustumSize / 2;
-  camera.bottom = frustumSize / -2;
-  camera.updateProjectionMatrix();
-
-  renderer.setSize(width, height);
-  particleSystem.setScreenSize(width, height);
-}
-
-window.addEventListener("resize", onWindowResize);
-
-// アニメーション開始
-animate();
-
-// クリーンアップ
-window.addEventListener("beforeunload", () => {
-  fluidSimulation.dispose();
-  particleSystem.dispose();
-  renderer.dispose();
+// 初期化を開始
+init().catch((error) => {
+  console.error("Fatal error:", error);
 });

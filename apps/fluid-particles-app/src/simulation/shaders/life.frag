@@ -1,3 +1,7 @@
+// GPUComputationRendererが自動的に追加するuniforms:
+// uniform sampler2D lifeTexture;
+// uniform vec2 resolution;
+
 uniform float dt;
 
 // 乱数生成関数
@@ -20,5 +24,5 @@ void main() {
     life.y = random(uv + vec2(0.4, 0.4)) * 5.0 + 1.0;
   }
   
-  pc_fragColor = vec4(life, 0.0, 1.0);
+  gl_FragColor = vec4(life, 0.0, 1.0);
 }

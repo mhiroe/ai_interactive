@@ -1,3 +1,8 @@
+// GPUComputationRendererが自動的に追加するuniforms:
+// uniform sampler2D velocityTexture;
+// uniform sampler2D pressureTexture;
+// uniform vec2 resolution;
+
 uniform vec2 mousePos;
 uniform vec2 mouseDelta;
 uniform float dt;
@@ -11,8 +16,8 @@ void main() {
   // マウスの影響を計算
   vec2 mouseVec = mousePos - uv;
   float mouseDist = length(mouseVec);
-  float mouseInfluence = exp(-mouseDist * 10.0);
-  vec2 mouseForce = mouseDelta * 30.0 * mouseInfluence;
+  float mouseInfluence = exp(-mouseDist * 5.0);
+  vec2 mouseForce = mouseDelta * 10.0 * mouseInfluence;
   
   // 圧力勾配を計算
   float pressure = texture(pressureTexture, uv).x;

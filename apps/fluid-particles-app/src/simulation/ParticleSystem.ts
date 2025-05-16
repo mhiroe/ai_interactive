@@ -37,7 +37,16 @@ export class ParticleSystem {
   protected initialized: boolean = false;
   protected screenSize: THREE.Vector2;
 
-  constructor(
+  static async create(
+    renderer: THREE.WebGLRenderer,
+    options: ParticleSystemOptions,
+  ): Promise<ParticleSystem> {
+    const system = new ParticleSystem(renderer, options);
+    await system.initialize();
+    return system;
+  }
+
+  private constructor(
     renderer: THREE.WebGLRenderer,
     options: ParticleSystemOptions,
   ) {
@@ -65,9 +74,11 @@ export class ParticleSystem {
 
     this.initTextures();
     this.initParticleMesh();
-    this.initShaders().then(() => {
-      this.initialized = true;
-    });
+  }
+
+  private async initialize(): Promise<void> {
+    await this.initShaders();
+    this.initialized = true;
   }
 
   /**
@@ -192,10 +203,10 @@ export class ParticleSystem {
         particleVertexShader,
         particleFragmentShader,
       ] = await Promise.all([
-        this.loadAndOptimizeShader("./shaders/position.frag"),
-        this.loadAndOptimizeShader("./shaders/life.frag"),
-        this.loadAndOptimizeShader("./shaders/particle.vert"),
-        this.loadAndOptimizeShader("./shaders/particle.frag"),
+        this.loadAndOptimizeShader("/shaders/position.frag"),
+        this.loadAndOptimizeShader("/shaders/life.frag"),
+        this.loadAndOptimizeShader("/shaders/particle.vert"),
+        this.loadAndOptimizeShader("/shaders/particle.frag"),
       ]);
 
       // 位置更新シェーダー
@@ -243,6 +254,7 @@ export class ParticleSystem {
         .material as unknown as ParticleMaterial;
       material.vertexShader = particleVertexShader;
       material.fragmentShader = particleFragmentShader;
+      material.needsUpdate = true;
     } catch (error) {
       console.error("シェーダーの初期化に失敗しました:", error);
       throw error;

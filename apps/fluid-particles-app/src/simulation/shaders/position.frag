@@ -1,3 +1,8 @@
+// GPUComputationRendererが自動的に追加するuniforms:
+// uniform sampler2D positionTexture;
+// uniform sampler2D lifeTexture;
+// uniform vec2 resolution;
+
 uniform sampler2D velocityFieldTexture;
 uniform float dt;
 
@@ -16,8 +21,8 @@ void main() {
   if (life.x < 0.0) {
     // パーティクルが非アクティブの場合、初期位置に戻す
     position = vec4(
-      (random(uv + vec2(0.1, 0.1)) * 2.0 - 1.0),
-      (random(uv + vec2(0.2, 0.2)) * 2.0 - 1.0),
+      (random(uv + vec2(0.1, 0.1)) * 1.6 - 0.8),
+      (random(uv + vec2(0.2, 0.2)) * 1.6 - 0.8),
       0.0,
       1.0
     );

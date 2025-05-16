@@ -1,12 +1,11 @@
-precision highp float;
+// Three.jsが自動的に提供する変数:
+// uniform mat4 projectionMatrix;
+// uniform mat4 modelViewMatrix;
+// attribute vec2 uv;
 
-uniform mat4 projectionMatrix;
-uniform mat4 modelViewMatrix;
 uniform sampler2D positionTexture;
 uniform sampler2D velocityTexture;
 uniform sampler2D lifeTexture;
-
-attribute vec2 uv;
 
 varying float vVelocityMagnitude;
 varying float vLifeRatio;
