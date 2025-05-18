@@ -1,85 +1,109 @@
 # 3Dインタラクション実装メモ
 
-## 移植した機能
+## ファイル構成
 
-1. WebGLマネージャー (クラス `WebGLManager`)
-   - シェーダープログラム管理
-   - テクスチャ/フレームバッファ管理
-   - ユニフォーム変数の設定
-   - テクスチャのスワップ処理
+```
+apps/nh_rebuild/src/
+├── gl/
+│   ├── base.ts      # 基本WebGLクラスと型定義
+│   ├── shaders.ts   # シェーダーコード
+│   └── utils.ts     # ユーティリティ関数
+└── main.ts          # メインクラス実装
+```
+
+## 実装クラス
+
+1. BaseGLRenderer (base.ts)
+   - WebGL基本機能の抽象化
+   - シェーダー管理
+   - バッファ管理
+   - ユニフォーム変数管理
+
+2. WebGLManager (main.ts)
+   - テクスチャ管理
+   - フレームバッファ管理
    - ブレンドモード制御
-   - アクセス修飾子による適切なカプセル化
+   - バッファスワップ
 
-2. パーティクルシステム (クラス `ParticleSystem`)
-   - デバイス検出とGPU判定
-   - パーティクル数の動的調整
-   - テクスチャの初期化
-   - パーティクルの更新と描画
-   - ライフサイクル管理
-   - エラーハンドリングの追加
+3. CursorRenderer (main.ts)
+   - カーソルの描画
+   - マウスイベント処理
+   - アニメーション制御
+   - ブレンド効果
 
-3. インタラクション管理 (クラス `InteractionManager`)
-   - マウスイベントの統合管理
-   - タッチイベントのサポート
-   - デバイス別の最適化
-   - 状態管理の改善
+4. OutlineRenderer (main.ts)
+   - アウトラインの描画
+   - デバイス別最適化
+   - アニメーション効果
+   - テクスチャ合成
 
-4. シェーダー
-   - 基本頂点シェーダー
-   - フラグメントシェーダー（カラー計算）
-   - 発光エフェクトシェーダー
-   - ブレンドシェーダー（パーティクルの合成）
+5. ParticleSystem (main.ts)
+   - パーティクル管理
+   - ライフサイクル制御
+   - 物理演算
+   - 描画最適化
 
-## 型安全性の改善
-
-1. クラスのプロパティ定義
-   - private: クラス内部のみアクセス可能
-   - protected: 継承クラスでアクセス可能
-   - public: 外部からアクセス可能
-
-2. メソッドの型定義
-   - 引数の型チェック
-   - 戻り値の型指定
-   - nullチェックの追加
-
-3. エラーハンドリング
-   - シェーダーコンパイルエラーの検出
-   - プログラムリンクエラーの検出
-   - 初期化エラーの処理
-
-## パフォーマンス最適化
+## 最適化ポイント
 
 1. メモリ管理
    - Float32Array の使用
-   - テクスチャのスワップ処理
    - バッファの再利用
+   - テクスチャのスワップ
 
 2. レンダリング
    - ブレンドモードの最適化
-   - バッチ処理の活用
-   - ビューポートの適切な管理
+   - バッチ処理
+   - ビューポート管理
 
 3. デバイス対応
-   - モバイル向けの最適化
-   - GPU機能の検出
-   - パーティクル数の調整
+   - モバイル向け最適化
+   - GPU機能検出
+   - パーティクル数調整
 
-## 元コードからの変更点
+## 型安全性
 
-1. コード構造
-   - クラスベースの設計
-   - 責務の明確な分離
-   - TypeScriptによる型安全性
+1. インターフェース
+   ```typescript
+   interface WebGLBufferWithLocation {
+       buffer: WebGLBuffer;
+       location: number;
+   }
 
-2. 機能改善
-   - エラーハンドリングの強化
-   - パフォーマンスの最適化
-   - デバイス対応の改善
+   interface WebGLBufferWithCount {
+       buffer: WebGLBuffer;
+       cnt: number;
+   }
 
-3. メンテナンス性
-   - コードの可読性向上
-   - ドキュメントの追加
-   - テスト容易性の向上
+   interface CursorBuffers {
+       position: WebGLBufferWithLocation;
+       direction: WebGLBufferWithLocation;
+       index: WebGLBufferWithCount;
+   }
+   ```
+
+2. 継承関係
+   ```typescript
+   abstract class BaseGLRenderer {
+       protected gl: WebGLRenderingContext;
+       protected program: WebGLProgram;
+       protected uniforms: { [key: string]: WebGLUniformLocation };
+   }
+
+   class WebGLManager extends BaseGLRenderer { ... }
+   class CursorRenderer extends BaseGLRenderer { ... }
+   class OutlineRenderer extends BaseGLRenderer { ... }
+   ```
+
+## シェーダー最適化
+
+1. 頂点シェーダー
+   - 座標変換の最適化
+   - アトリビュート最小化
+
+2. フラグメントシェーダー
+   - 計算量の削減
+   - テクスチャ参照の最適化
+   - 条件分岐の削減
 
 ## 参照元
 
