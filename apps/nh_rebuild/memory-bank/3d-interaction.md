@@ -6,7 +6,9 @@
 apps/nh_rebuild/src/
 ├── gl/
 │   ├── base.ts      # 基本WebGLクラスと型定義
+│   ├── matrix.ts    # 行列演算ユーティリティ
 │   ├── shaders.ts   # シェーダーコード
+│   ├── types.ts     # 型定義
 │   └── utils.ts     # ユーティリティ関数
 └── main.ts          # メインクラス実装
 ```
@@ -62,37 +64,35 @@ apps/nh_rebuild/src/
 
 ## 型安全性
 
-1. インターフェース
-   ```typescript
-   interface WebGLBufferWithLocation {
-       buffer: WebGLBuffer;
-       location: number;
-   }
+1. WebGL型定義
+```typescript
+type WebGLContext = WebGLRenderingContext;
+type WebGLProg = WebGLProgram;
+type WebGLShad = WebGLShader;
+type WebGLBuf = WebGLBuffer;
+type WebGLTex = WebGLTexture;
+type WebGLFBuf = WebGLFramebuffer;
+type WebGLUniformLoc = WebGLUniformLocation;
+```
 
-   interface WebGLBufferWithCount {
-       buffer: WebGLBuffer;
-       cnt: number;
-   }
+2. バッファ関連の型定義
+```typescript
+interface WebGLBufferWithLocation {
+    buffer: WebGLBuf;
+    location: number;
+}
 
-   interface CursorBuffers {
-       position: WebGLBufferWithLocation;
-       direction: WebGLBufferWithLocation;
-       index: WebGLBufferWithCount;
-   }
-   ```
+interface WebGLBufferWithCount {
+    buffer: WebGLBuf;
+    cnt: number;
+}
 
-2. 継承関係
-   ```typescript
-   abstract class BaseGLRenderer {
-       protected gl: WebGLRenderingContext;
-       protected program: WebGLProgram;
-       protected uniforms: { [key: string]: WebGLUniformLocation };
-   }
-
-   class WebGLManager extends BaseGLRenderer { ... }
-   class CursorRenderer extends BaseGLRenderer { ... }
-   class OutlineRenderer extends BaseGLRenderer { ... }
-   ```
+interface CursorBuffers {
+    position: WebGLBufferWithLocation;
+    direction: WebGLBufferWithLocation;
+    index: WebGLBufferWithCount;
+}
+```
 
 ## シェーダー最適化
 
@@ -104,6 +104,23 @@ apps/nh_rebuild/src/
    - 計算量の削減
    - テクスチャ参照の最適化
    - 条件分岐の削減
+
+## 移植時の改善点
+
+1. コードの構造化
+   - 責務の分離
+   - クラス階層の整理
+   - インターフェースの明確化
+
+2. 型安全性の向上
+   - TypeScriptの型定義追加
+   - エラー処理の改善
+   - nullチェックの追加
+
+3. パフォーマンス最適化
+   - メモリ使用量の削減
+   - 描画処理の効率化
+   - デバイス対応の強化
 
 ## 参照元
 

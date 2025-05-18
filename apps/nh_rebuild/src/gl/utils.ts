@@ -1,22 +1,17 @@
-export const detectDevice = () => {
-    const ua = navigator.userAgent;
-    return {
-        platform: {
-            type: /(iPad|iPhone|iPod)/g.test(ua) ? "mobile" : "desktop",
-        },
-    };
-};
+import type {
+    WebGLContext,
+    WebGLProg,
+    WebGLShad,
+    WebGLUniformLoc,
+    WindowSize,
+} from "./types.ts";
 
-export const isAppleDevice = (gpu: { gpu?: string[] }) => {
-    const hasAppleGPU = !!gpu.gpu && gpu.gpu.includes("Apple");
-    return /(iPad|iPhone|iPod)/g.test(navigator.userAgent) || hasAppleGPU;
-};
-
+// シェーダーの作成
 export const createShader = (
-    gl: WebGLRenderingContext,
+    gl: WebGLContext,
     type: number,
     source: string,
-): WebGLShader | null => {
+): WebGLShad | null => {
     const shader = gl.createShader(type);
     if (!shader) return null;
 
@@ -31,14 +26,18 @@ export const createShader = (
     return shader;
 };
 
+// プログラムの作成
 export const createProgram = (
-    gl: WebGLRenderingContext,
+    gl: WebGLContext,
     vertexSource: string,
     fragmentSource: string,
-): WebGLProgram | null => {
+): WebGLProg | null => {
     const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexSource);
     const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentSource);
-    if (!vertexShader || !fragmentShader) return null;
+
+    if (!vertexShader || !fragmentShader) {
+        return null;
+    }
 
     const program = gl.createProgram();
     if (!program) return null;
@@ -48,19 +47,20 @@ export const createProgram = (
     gl.linkProgram(program);
 
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
-        console.warn(`WebGLProgram: ${gl.getProgramInfoLog(program)}`);
+        console.error(gl.getProgramInfoLog(program));
         return null;
     }
 
     return program;
 };
 
+// ユニフォーム変数の取得
 export const getUniforms = (
-    gl: WebGLRenderingContext,
-    program: WebGLProgram,
+    gl: WebGLContext,
+    program: WebGLProg,
     names: string[],
-): { [key: string]: WebGLUniformLocation } => {
-    const uniforms: { [key: string]: WebGLUniformLocation } = {};
+): { [key: string]: WebGLUniformLoc } => {
+    const uniforms: { [key: string]: WebGLUniformLoc } = {};
     for (const name of names) {
         const location = gl.getUniformLocation(program, name);
         if (location) uniforms[name] = location;
@@ -68,26 +68,25 @@ export const getUniforms = (
     return uniforms;
 };
 
+// バッファの作成
 export const createBuffer = (
-    gl: WebGLRenderingContext,
-    program: WebGLProgram,
+    gl: WebGLContext,
+    program: WebGLProg,
     data: Float32Array,
     attributeName: string,
 ) => {
     const buffer = gl.createBuffer();
-    const location = gl.getAttribLocation(program, attributeName);
     if (!buffer) throw new Error("Failed to create buffer");
 
+    const location = gl.getAttribLocation(program, attributeName);
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 
     return { buffer, location };
 };
 
-export const createIndexBuffer = (
-    gl: WebGLRenderingContext,
-    data: Uint16Array,
-) => {
+// インデックスバッファの作成
+export const createIndexBuffer = (gl: WebGLContext, data: Uint16Array) => {
     const buffer = gl.createBuffer();
     if (!buffer) throw new Error("Failed to create index buffer");
 
@@ -96,3 +95,26 @@ export const createIndexBuffer = (
 
     return { buffer, cnt: data.length };
 };
+
+// デバイス検出
+export const detectDevice = () => {
+    const ua = navigator.userAgent;
+    const platform = {
+        type: /Mobile|Android|iPhone|iPad|iPod/i.test(ua)
+            ? /iPad/i.test(ua) ? "tablet" : "mobile"
+            : "desktop",
+    };
+    return { platform };
+};
+
+// Apple デバイスの検出
+export const isAppleDevice = (info: { gpu: string[] }) => {
+    const hasAppleGPU = info.gpu.some((gpu) => gpu.includes("Apple"));
+    return /(iPad|iPhone|iPod)/g.test(navigator.userAgent) || hasAppleGPU;
+};
+
+// ウィンドウサイズの取得
+export const getWindowSize = (): WindowSize => ({
+    width: globalThis.innerWidth,
+    height: globalThis.innerHeight,
+});

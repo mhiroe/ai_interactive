@@ -1,33 +1,57 @@
+import { BaseGLRenderer } from "./gl/base.ts";
+import { Matrix4 } from "./gl/matrix.ts";
 import {
-    BaseGLRenderer,
-    CursorBuffers,
-    WebGLBufferWithLocation,
-} from "./gl/base.ts";
-import {
+    ADVECTION_SHADER,
     CURSOR_FRAGMENT_SHADER,
     CURSOR_VERTEX_SHADER,
+    DIVERGENCE_SHADER,
     FRAGMENT_SHADER,
+    LIFE_SHADER,
     OUTLINE_FRAGMENT_SHADER,
     OUTLINE_VERTEX_SHADER,
+    POSITION_SHADER,
+    PRESSURE_SHADER,
+    VELOCITY_SHADER,
     VERTEX_SHADER,
 } from "./gl/shaders.ts";
+import type {
+    BlendMode,
+    CursorBuffers,
+    WebGLBufferWithLocation,
+    WebGLContext,
+    WebGLProg,
+    WebGLTex,
+} from "./gl/types.ts";
 import {
     createBuffer,
     createIndexBuffer,
     createProgram,
     detectDevice,
     getUniforms,
+    getWindowSize,
+    isAppleDevice,
 } from "./gl/utils.ts";
+
+// テクスチャ名の定義
+const TEXTURE_NAMES = {
+    VELOCITY_0: "velocity0",
+    VELOCITY_1: "velocity1",
+    VELOCITY_DIVERGENCE: "velocityDivergence",
+    PRESSURE_0: "pressure0",
+    PRESSURE_1: "pressure1",
+    POSITION_0: "position0",
+    POSITION_1: "position1",
+    POSITION: "position",
+    INIT_POSITION_BASE: "initPositionBase",
+    LIFE_0: "life0",
+    LIFE_1: "life1",
+} as const;
+
+type TextureNames = typeof TEXTURE_NAMES[keyof typeof TEXTURE_NAMES];
 
 // WebGLマネージャークラス
 class WebGLManager extends BaseGLRenderer {
-    protected textures: { [key: string]: WebGLTexture } = {};
-    protected frameBuffers: { [key: string]: WebGLFramebuffer } = {};
-    protected vbos: { position: { [key: string]: WebGLBuffer } } = {
-        position: {},
-    };
-
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGLContext) {
         super(gl);
         this.reset();
     }
@@ -38,82 +62,7 @@ class WebGLManager extends BaseGLRenderer {
         this.vbos = { position: {} };
     }
 
-    public initTexture(
-        name: string,
-        width: number,
-        height: number,
-        type: number,
-        data: Float32Array | null = null,
-    ): void {
-        const texture = this.gl.createTexture();
-        if (!texture) return;
-
-        this.gl.bindTexture(this.gl.TEXTURE_2D, texture);
-        this.gl.texParameteri(
-            this.gl.TEXTURE_2D,
-            this.gl.TEXTURE_MAG_FILTER,
-            this.gl.LINEAR,
-        );
-        this.gl.texParameteri(
-            this.gl.TEXTURE_2D,
-            this.gl.TEXTURE_MIN_FILTER,
-            this.gl.LINEAR,
-        );
-        this.gl.texParameteri(
-            this.gl.TEXTURE_2D,
-            this.gl.TEXTURE_WRAP_S,
-            this.gl.CLAMP_TO_EDGE,
-        );
-        this.gl.texParameteri(
-            this.gl.TEXTURE_2D,
-            this.gl.TEXTURE_WRAP_T,
-            this.gl.CLAMP_TO_EDGE,
-        );
-        this.gl.texImage2D(
-            this.gl.TEXTURE_2D,
-            0,
-            this.gl.RGBA,
-            width,
-            height,
-            0,
-            this.gl.RGBA,
-            type,
-            data,
-        );
-
-        this.textures[name] = texture;
-    }
-
-    public initFramebuffer(name: string, width: number, height: number): void {
-        const texture = this.textures[name];
-        if (!texture) return;
-
-        const framebuffer = this.gl.createFramebuffer();
-        if (!framebuffer) return;
-
-        this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, framebuffer);
-        this.gl.framebufferTexture2D(
-            this.gl.FRAMEBUFFER,
-            this.gl.COLOR_ATTACHMENT0,
-            this.gl.TEXTURE_2D,
-            texture,
-            0,
-        );
-
-        this.frameBuffers[name] = framebuffer;
-    }
-
-    public swapTextures(name1: string, name2: string): void {
-        const tempTex = this.textures[name1];
-        this.textures[name1] = this.textures[name2];
-        this.textures[name2] = tempTex;
-
-        const tempFB = this.frameBuffers[name1];
-        this.frameBuffers[name1] = this.frameBuffers[name2];
-        this.frameBuffers[name2] = tempFB;
-    }
-
-    public setBlendMode(mode: "normal" | "add" | "multiply"): void {
+    public setBlendMode(mode: BlendMode): void {
         switch (mode) {
             case "add":
                 this.gl.enable(this.gl.BLEND);
@@ -143,7 +92,7 @@ class CursorRenderer extends BaseGLRenderer {
     private scale: number = 1;
     private rad: number = 30;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGLContext) {
         super(gl);
         this.program = createProgram(
             this.gl,
@@ -237,13 +186,13 @@ class CursorRenderer extends BaseGLRenderer {
         );
 
         // ユニフォーム変数の設定
-        this.gl.uniform1f(this.uniforms.uOpacity, this.opacity);
-        this.gl.uniform1f(
-            this.uniforms.uScale,
+        this.setUniform("uOpacity", this.opacity);
+        this.setUniform(
+            "uScale",
             Math.sqrt(velocity[0] * velocity[0] + velocity[1] * velocity[1]),
         );
-        this.gl.uniform2f(this.uniforms.uWindow, windowSize[0], windowSize[1]);
-        this.gl.uniform2f(this.uniforms.uMouse, mouse[0], mouse[1]);
+        this.setUniform("uWindow", windowSize);
+        this.setUniform("uMouse", mouse);
 
         // 描画
         this.gl.enable(this.gl.BLEND);
@@ -306,7 +255,7 @@ class OutlineRenderer extends BaseGLRenderer {
     private alpha: number = 0;
     private browser: ReturnType<typeof detectDevice>;
 
-    constructor(gl: WebGLRenderingContext) {
+    constructor(gl: WebGLContext) {
         super(gl);
         this.program = createProgram(
             this.gl,
@@ -346,7 +295,7 @@ class OutlineRenderer extends BaseGLRenderer {
     public render(
         topLeft: [number, number],
         botRight: [number, number],
-        velocityTexture: WebGLTexture,
+        velocityTexture: WebGLTex,
     ): void {
         this.gl.useProgram(this.program);
 
@@ -363,14 +312,14 @@ class OutlineRenderer extends BaseGLRenderer {
         this.gl.enableVertexAttribArray(this.position.location);
 
         // ユニフォーム変数の設定
-        this.gl.uniform2f(this.uniforms.uTopLeft, topLeft[0], topLeft[1]);
-        this.gl.uniform2f(this.uniforms.uBotRight, botRight[0], botRight[1]);
-        this.gl.uniform1f(this.uniforms.uAlpha, this.alpha);
+        this.setUniform("uTopLeft", topLeft);
+        this.setUniform("uBotRight", botRight);
+        this.setUniform("uAlpha", this.alpha);
 
         // テクスチャのバインド
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, velocityTexture);
-        this.gl.uniform1i(this.uniforms.velocity, 0);
+        this.setUniform("velocity", 0);
 
         // 描画
         this.gl.enable(this.gl.BLEND);
@@ -395,19 +344,27 @@ class OutlineRenderer extends BaseGLRenderer {
 
 // パーティクルシステムクラス
 class ParticleSystem {
-    private gl: WebGLRenderingContext;
+    private gl: WebGLContext;
     private manager: WebGLManager;
     private size: number;
     private positions: Float32Array;
     private uvs: Float32Array;
     private lifes: Float32Array;
     private isInit: boolean = true;
-    private mainProgram: WebGLProgram | null = null;
+    private mainProgram: WebGLProg | null = null;
+    private mvMatrix: Matrix4;
+    private projectionMatrix: Matrix4;
+    private mvpMatrix: Matrix4;
 
-    constructor(gl: WebGLRenderingContext, size: number) {
+    constructor(gl: WebGLContext, size: number) {
         this.gl = gl;
         this.manager = new WebGLManager(gl);
         this.size = size;
+
+        // 行列の初期化
+        this.mvMatrix = new Matrix4();
+        this.projectionMatrix = new Matrix4();
+        this.mvpMatrix = new Matrix4();
 
         // バッファの初期化
         this.positions = new Float32Array(size * 4);
@@ -418,6 +375,33 @@ class ParticleSystem {
     }
 
     private init(): void {
+        this.initializeMatrices();
+        this.initializeShaders();
+        this.initializeBuffers();
+    }
+
+    private initializeMatrices(): void {
+        // 視野角を45度に設定
+        const fovy = Math.PI * 0.25;
+        const { width, height } = getWindowSize();
+        const aspect = width / height;
+
+        // プロジェクション行列の設定
+        this.projectionMatrix.perspective(fovy, aspect, 0.1, 100.0);
+
+        // ビュー行列の設定
+        this.mvMatrix.lookAt(
+            [0, 0, 10], // カメラ位置
+            [0, 0, 0], // 注視点
+            [0, 1, 0], // 上方向
+        );
+
+        // MVP行列の計算
+        this.mvpMatrix = this.projectionMatrix.multiply(this.mvMatrix);
+    }
+
+    private initializeShaders(): void {
+        // メインプログラム
         this.mainProgram = createProgram(
             this.gl,
             VERTEX_SHADER,
@@ -427,43 +411,139 @@ class ParticleSystem {
             throw new Error("Failed to initialize particle system");
         }
 
-        for (let i = 0; i < this.size; i++) {
-            this.resetParticle(i);
+        // シェーダープログラムの初期化
+        const programs = [
+            { name: "life", vertex: VERTEX_SHADER, fragment: LIFE_SHADER },
+            {
+                name: "velocity",
+                vertex: VERTEX_SHADER,
+                fragment: VELOCITY_SHADER,
+            },
+            {
+                name: "position",
+                vertex: VERTEX_SHADER,
+                fragment: POSITION_SHADER,
+            },
+            {
+                name: "advection",
+                vertex: VERTEX_SHADER,
+                fragment: ADVECTION_SHADER,
+            },
+            {
+                name: "divergence",
+                vertex: VERTEX_SHADER,
+                fragment: DIVERGENCE_SHADER,
+            },
+            {
+                name: "pressure",
+                vertex: VERTEX_SHADER,
+                fragment: PRESSURE_SHADER,
+            },
+        ];
+
+        for (const { name, vertex, fragment } of programs) {
+            this.manager.createProgram(name, vertex, fragment);
         }
+
+        // ユニフォーム変数の設定
+        this.manager.setProgram("velocity");
+        this.manager.setUniform("uMVPMatrix", this.mvpMatrix.getData());
     }
 
-    private resetParticle(index: number): void {
-        // 位置をランダムに設定
-        this.positions[index * 4] = (Math.random() - 0.5) * 2;
-        this.positions[index * 4 + 1] = (Math.random() - 0.5) * 2;
-        this.positions[index * 4 + 2] = (Math.random() - 0.5) * 2;
-        this.positions[index * 4 + 3] = 1;
+    private initializeBuffers(): void {
+        const isIOS = isAppleDevice({ gpu: [] });
+        const type = isIOS ? this.gl.FLOAT : (this.gl as any).HALF_FLOAT_OES;
 
-        // UV座標
-        const x = (index % this.size) / this.size;
-        const y = Math.floor(index / this.size) / this.size;
-        this.uvs[index * 2] = x;
-        this.uvs[index * 2 + 1] = y;
+        // ライフサイクルテクスチャの初期化
+        for (let i = 0; i < this.size; i++) {
+            const time = Math.random() * -4;
+            const duration = Math.random() * 5 + 1;
+            this.lifes[i * 4] = time;
+            this.lifes[i * 4 + 1] = duration;
+            this.lifes[i * 4 + 2] = 0;
+            this.lifes[i * 4 + 3] = 1;
+        }
 
-        // ライフタイム
-        this.lifes[index * 4] = Math.random() * -4; // 現在の時間
-        this.lifes[index * 4 + 1] = Math.random() * 5 + 1; // 持続時間
-        this.lifes[index * 4 + 2] = 0;
-        this.lifes[index * 4 + 3] = 1;
+        // テクスチャの初期化
+        [
+            TEXTURE_NAMES.LIFE_0,
+            TEXTURE_NAMES.LIFE_1,
+        ].forEach((name) => {
+            this.manager.initTexture(
+                name,
+                this.size,
+                this.size,
+                type,
+                isIOS ? null : this.lifes,
+            );
+            this.manager.initFramebuffer(name, this.size, this.size);
+        });
+
+        [
+            TEXTURE_NAMES.POSITION,
+            TEXTURE_NAMES.POSITION_0,
+            TEXTURE_NAMES.POSITION_1,
+            TEXTURE_NAMES.VELOCITY_0,
+            TEXTURE_NAMES.VELOCITY_1,
+        ].forEach((name) => {
+            this.manager.initTexture(name, this.size, this.size, type);
+            this.manager.initFramebuffer(name, this.size, this.size);
+        });
     }
 
     public render(width: number, height: number): void {
         if (!this.mainProgram) return;
 
+        // パーティクルの更新
+        this.updateParticles();
+
         // ビューポートの設定
         this.gl.viewport(0, 0, width, height);
 
-        // パーティクルの更新と描画
+        // パーティクルの描画
         this.gl.useProgram(this.mainProgram);
         this.gl.enable(this.gl.BLEND);
         this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
         this.gl.drawArrays(this.gl.POINTS, 0, this.size);
     }
+
+    private updateParticles(): void {
+        // ライフサイクルの更新
+        this.manager.setProgram("life");
+        this.manager.run("life", [TEXTURE_NAMES.LIFE_0], TEXTURE_NAMES.LIFE_1);
+        this.manager.swapTextures(TEXTURE_NAMES.LIFE_0, TEXTURE_NAMES.LIFE_1);
+
+        // 速度の更新
+        this.manager.setProgram("velocity");
+        this.manager.run(
+            "velocity",
+            [TEXTURE_NAMES.VELOCITY_0],
+            TEXTURE_NAMES.VELOCITY_1,
+        );
+        this.manager.swapTextures(
+            TEXTURE_NAMES.VELOCITY_0,
+            TEXTURE_NAMES.VELOCITY_1,
+        );
+
+        // 位置の更新
+        this.manager.setProgram("position");
+        this.manager.run("position", [
+            TEXTURE_NAMES.POSITION_0,
+            TEXTURE_NAMES.VELOCITY_0,
+            TEXTURE_NAMES.POSITION,
+            TEXTURE_NAMES.LIFE_0,
+        ], TEXTURE_NAMES.POSITION_1);
+        this.manager.swapTextures(
+            TEXTURE_NAMES.POSITION_0,
+            TEXTURE_NAMES.POSITION_1,
+        );
+    }
 }
 
-export { CursorRenderer, OutlineRenderer, ParticleSystem, WebGLManager };
+export {
+    CursorRenderer,
+    OutlineRenderer,
+    ParticleSystem,
+    TEXTURE_NAMES,
+    WebGLManager,
+};
