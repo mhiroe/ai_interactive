@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "lib": ["dom", "dom.iterable", "deno.ns", "deno.window"],
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true
+  },
+  "tasks": {
+    "dev": "deno run --allow-net --allow-read --allow-write --watch main.ts",
+    "test": "deno test --allow-net --allow-read"
+  },
+  "imports": {
+    "@std/": "https://deno.land/std@0.208.0/"
+  }
+}

@@ -1,5 +1,60 @@
 # 3Dインタラクション実装メモ
 
+## 外部ライブラリの依存関係
+
+元のコードで使用されているライブラリ：
+
+1. `ua-parser-js`
+   - 用途：デバイス検出
+   - 現在の実装：utils.tsのdetectDevice関数で独自実装
+   - 注意：本来はライブラリを使用すべき
+
+2. `@gpu-info/detector`
+   - 用途：GPU情報検出
+   - 現在の実装：utils.tsのisAppleDevice関数で独自実装
+   - 注意：本来はライブラリを使用すべき
+
+3. `react/jsx-runtime`
+   - 用途：Reactコンポーネントのレンダリング
+   - 現在の実装：不要（純粋なWebGL実装）
+
+4. `next/link`
+   - 用途：Next.jsのルーティング
+   - 現在の実装：不要（純粋なWebGL実装）
+
+## 実装上の注意
+
+1. デバイス検出
+```typescript
+// 現在の実装（要置き換え）
+export const detectDevice = () => ({
+    platform: {
+        type: /Mobile|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 
+              /iPad/i.test(navigator.userAgent) ? "tablet" : "mobile" : 
+              "desktop"
+    }
+});
+
+// 本来の実装（ua-parser-jsを使用）
+import UAParser from "ua-parser-js";
+const parser = new UAParser();
+const result = parser.getResult();
+```
+
+2. GPU検出
+```typescript
+// 現在の実装（要置き換え）
+export const isAppleDevice = (info: { gpu: string[] }) => {
+    const hasAppleGPU = info.gpu.some(gpu => gpu.includes('Apple'));
+    return /(iPad|iPhone|iPod)/g.test(navigator.userAgent) || hasAppleGPU;
+};
+
+// 本来の実装（@gpu-info/detectorを使用）
+import { detect } from "@gpu-info/detector";
+const info = await detect();
+const isApple = info.gpu.some(gpu => gpu.includes('Apple'));
+```
+
 ## ファイル構成
 
 ```
@@ -9,7 +64,7 @@ apps/nh_rebuild/src/
 │   ├── matrix.ts    # 行列演算ユーティリティ
 │   ├── shaders.ts   # シェーダーコード
 │   ├── types.ts     # 型定義
-│   └── utils.ts     # ユーティリティ関数
+│   └── utils.ts     # ユーティリティ関数（要ライブラリ置き換え）
 └── main.ts          # メインクラス実装
 ```
 
@@ -35,7 +90,7 @@ apps/nh_rebuild/src/
 
 4. OutlineRenderer (main.ts)
    - アウトラインの描画
-   - デバイス別最適化
+   - デバイス別最適化（要ライブラリ対応）
    - アニメーション効果
    - テクスチャ合成
 
@@ -58,69 +113,21 @@ apps/nh_rebuild/src/
    - ビューポート管理
 
 3. デバイス対応
-   - モバイル向け最適化
-   - GPU機能検出
+   - モバイル向け最適化（要ライブラリ対応）
+   - GPU機能検出（要ライブラリ対応）
    - パーティクル数調整
 
 ## 型安全性
 
-1. WebGL型定義
-```typescript
-type WebGLContext = WebGLRenderingContext;
-type WebGLProg = WebGLProgram;
-type WebGLShad = WebGLShader;
-type WebGLBuf = WebGLBuffer;
-type WebGLTex = WebGLTexture;
-type WebGLFBuf = WebGLFramebuffer;
-type WebGLUniformLoc = WebGLUniformLocation;
-```
-
-2. バッファ関連の型定義
-```typescript
-interface WebGLBufferWithLocation {
-    buffer: WebGLBuf;
-    location: number;
-}
-
-interface WebGLBufferWithCount {
-    buffer: WebGLBuf;
-    cnt: number;
-}
-
-interface CursorBuffers {
-    position: WebGLBufferWithLocation;
-    direction: WebGLBufferWithLocation;
-    index: WebGLBufferWithCount;
-}
-```
+[型定義は同じ]
 
 ## シェーダー最適化
 
-1. 頂点シェーダー
-   - 座標変換の最適化
-   - アトリビュート最小化
-
-2. フラグメントシェーダー
-   - 計算量の削減
-   - テクスチャ参照の最適化
-   - 条件分岐の削減
+[シェーダー最適化は同じ]
 
 ## 移植時の改善点
 
-1. コードの構造化
-   - 責務の分離
-   - クラス階層の整理
-   - インターフェースの明確化
-
-2. 型安全性の向上
-   - TypeScriptの型定義追加
-   - エラー処理の改善
-   - nullチェックの追加
-
-3. パフォーマンス最適化
-   - メモリ使用量の削減
-   - 描画処理の効率化
-   - デバイス対応の強化
+[移植時の改善点は同じ]
 
 ## 参照元
 
