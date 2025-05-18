@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Particle Demo</title>
+    <style>
+      body {
+        margin: 0;
+        overflow: hidden;
+        background: #000;
+      }
+      canvas {
+        width: 100vw;
+        height: 100vh;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <script>
+      class ParticleDemo {
+        constructor() {
+          this.canvas = document.getElementById("canvas");
+          this.gl = this.canvas.getContext("webgl");
+          if (!this.gl) {
+            alert("WebGL not supported");
+            return;
+          }
+
+          this.resizeCanvas();
+          window.addEventListener("resize", () => this.resizeCanvas());
+
+          this.particleCount = 1000;
+          this.particles = [];
+          for (let i = 0; i < this.particleCount; i++) {
+            this.particles.push({
+              position: [
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+              ],
+              velocity: [
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01,
+                (Math.random() - 0.5) * 0.01,
+              ],
+              life: Math.random(),
+            });
+          }
+
+          this.initShaders();
+          this.initBuffers();
+          this.animate();
+        }
+
+        resizeCanvas() {
+          this.canvas.width = window.innerWidth;
+          this.canvas.height = window.innerHeight;
+          this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+        }
+
+        initShaders() {
+          const vsSource = `
+                    attribute vec3 aPosition;
+                    attribute float aLife;
+                    uniform mat4 uModelViewMatrix;
+                    uniform mat4 uProjectionMatrix;
+                    varying float vLife;
+                    void main() {
+                        vLife = aLife;
+                        gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPosition, 1.0);
+                        gl_PointSize = 2.0;
+                    }
+                `;
+
+          const fsSource = `
+                    precision mediump float;
+                    varying float vLife;
+                    void main() {
+                        gl_FragColor = vec4(1.0, 1.0, 1.0, vLife);
+                    }
+                `;
+
+          const vertexShader = this.loadShader(this.gl.VERTEX_SHADER, vsSource);
+          const fragmentShader = this.loadShader(
+            this.gl.FRAGMENT_SHADER,
+            fsSource
+          );
+
+          this.program = this.gl.createProgram();
+          this.gl.attachShader(this.program, vertexShader);
+          this.gl.attachShader(this.program, fragmentShader);
+          this.gl.linkProgram(this.program);
+
+          if (!this.gl.getProgramParameter(this.program, this.gl.LINK_STATUS)) {
+            alert("Unable to initialize the shader program");
+            return;
+          }
+
+          this.gl.useProgram(this.program);
+        }
+
+        loadShader(type, source) {
+          const shader = this.gl.createShader(type);
+          this.gl.shaderSource(shader, source);
+          this.gl.compileShader(shader);
+
+          if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+            alert(
+              "An error occurred compiling the shaders: " +
+                this.gl.getShaderInfoLog(shader)
+            );
+            this.gl.deleteShader(shader);
+            return null;
+          }
+
+          return shader;
+        }
+
+        initBuffers() {
+          this.positionBuffer = this.gl.createBuffer();
+          this.lifeBuffer = this.gl.createBuffer();
+        }
+
+        updateParticles() {
+          const positions = [];
+          const lives = [];
+
+          for (let particle of this.particles) {
+            // 位置の更新
+            particle.position[0] += particle.velocity[0];
+            particle.position[1] += particle.velocity[1];
+            particle.position[2] += particle.velocity[2];
+
+            // ライフの更新
+            particle.life -= 0.001;
+            if (particle.life <= 0) {
+              particle.life = 1.0;
+              particle.position = [
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+              ];
+            }
+
+            positions.push(...particle.position);
+            lives.push(particle.life);
+          }
+
+          // バッファの更新
+          this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+          this.gl.bufferData(
+            this.gl.ARRAY_BUFFER,
+            new Float32Array(positions),
+            this.gl.STATIC_DRAW
+          );
+
+          this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.lifeBuffer);
+          this.gl.bufferData(
+            this.gl.ARRAY_BUFFER,
+            new Float32Array(lives),
+            this.gl.STATIC_DRAW
+          );
+        }
+
+        animate() {
+          this.gl.clearColor(0.0, 0.0, 0.0, 1.0);
+          this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
+
+          this.updateParticles();
+
+          const projectionMatrix = this.perspective(
+            45,
+            this.canvas.width / this.canvas.height,
+            0.1,
+            100.0
+          );
+          const modelViewMatrix = this.translate(0.0, 0.0, -5.0);
+
+          // 位置属性の設定
+          const positionLocation = this.gl.getAttribLocation(
+            this.program,
+            "aPosition"
+          );
+          this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.positionBuffer);
+          this.gl.vertexAttribPointer(
+            positionLocation,
+            3,
+            this.gl.FLOAT,
+            false,
+            0,
+            0
+          );
+          this.gl.enableVertexAttribArray(positionLocation);
+
+          // ライフ属性の設定
+          const lifeLocation = this.gl.getAttribLocation(this.program, "aLife");
+          this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.lifeBuffer);
+          this.gl.vertexAttribPointer(
+            lifeLocation,
+            1,
+            this.gl.FLOAT,
+            false,
+            0,
+            0
+          );
+          this.gl.enableVertexAttribArray(lifeLocation);
+
+          // 行列の設定
+          const projectionLocation = this.gl.getUniformLocation(
+            this.program,
+            "uProjectionMatrix"
+          );
+          const modelViewLocation = this.gl.getUniformLocation(
+            this.program,
+            "uModelViewMatrix"
+          );
+          this.gl.uniformMatrix4fv(projectionLocation, false, projectionMatrix);
+          this.gl.uniformMatrix4fv(modelViewLocation, false, modelViewMatrix);
+
+          // ブレンディングの設定
+          this.gl.enable(this.gl.BLEND);
+          this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE);
+
+          // 描画
+          this.gl.drawArrays(this.gl.POINTS, 0, this.particleCount);
+
+          requestAnimationFrame(() => this.animate());
+        }
+
+        perspective(fovy, aspect, near, far) {
+          const f = 1.0 / Math.tan((fovy * Math.PI) / 360);
+          const nf = 1 / (near - far);
+
+          return [
+            f / aspect,
+            0,
+            0,
+            0,
+            0,
+            f,
+            0,
+            0,
+            0,
+            0,
+            (far + near) * nf,
+            -1,
+            0,
+            0,
+            2 * far * near * nf,
+            0,
+          ];
+        }
+
+        translate(x, y, z) {
+          return [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1];
+        }
+      }
+
+      // 初期化
+      document.addEventListener("DOMContentLoaded", () => {
+        new ParticleDemo();
+      });
+    </script>
+  </body>
+</html>

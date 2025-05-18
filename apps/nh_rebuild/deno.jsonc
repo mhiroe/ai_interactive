@@ -6,7 +6,7 @@
     "checkJs": true
   },
   "tasks": {
-    "dev": "deno run --allow-net --allow-read --allow-write --watch main.ts",
+    "dev": "deno run --allow-net --allow-read --watch src/server.ts",
     "test": "deno test --allow-net --allow-read"
   },
   "imports": {
